@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { getToken, onMessage, deleteToken, isSupported } from 'firebase/messaging'
 import { doc, setDoc, collection, addDoc, deleteDoc, query, where, getDocs, onSnapshot, orderBy } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
@@ -13,52 +12,49 @@ export function NotificationProvider({ children }) {
   const [fcmToken, setFcmToken] = useState(null)
   const [permission, setPermission] = useState('default')
   const [scheduledNotifications, setScheduledNotifications] = useState([])
-  const [messagingInstance, setMessagingInstance] = useState(null)
 
   useEffect(() => {
-    if ('Notification' in window) {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
       setPermission(Notification.permission)
     }
-    
-    isSupported().then(supported => {
-      if (supported) {
-        import('firebase/messaging').then(({ getMessaging }) => {
-          setMessagingInstance(getMessaging())
-        })
-      }
-    })
   }, [])
 
   useEffect(() => {
+    if (!auth) return
+
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (!user) {
+      if (!user || !db) {
         setScheduledNotifications([])
         return
       }
 
-      const q = query(
-        collection(db, 'users', user.uid, 'notifications'),
-        orderBy('scheduledFor', 'asc')
-      )
+      try {
+        const q = query(
+          collection(db, 'users', user.uid, 'notifications'),
+          orderBy('scheduledFor', 'asc')
+        )
 
-      const unsub = onSnapshot(q, (snapshot) => {
-        const notifications = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }))
-        setScheduledNotifications(notifications)
-      }, (error) => {
-        console.log('Notifications listener error:', error.message)
-      })
+        const unsub = onSnapshot(q, (snapshot) => {
+          const notifications = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          setScheduledNotifications(notifications)
+        }, (error) => {
+          console.log('Notifications listener error:', error.message)
+        })
 
-      return unsub
+        return unsub
+      } catch (error) {
+        console.log('Notifications setup error:', error.message)
+      }
     })
 
     return () => unsubscribe()
   }, [])
 
   const requestPermission = async () => {
-    if (!('Notification' in window)) {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
       return false
     }
 
@@ -73,25 +69,25 @@ export function NotificationProvider({ children }) {
   }
 
   const getFCMToken = async () => {
-    if (!messagingInstance) {
-      return null
-    }
-
     try {
-      const currentToken = await getToken(messagingInstance, {
+      const { isSupported, getToken, getMessaging } = await import('firebase/messaging')
+      const supported = await isSupported()
+      
+      if (!supported || !auth?.currentUser) {
+        return null
+      }
+
+      const messaging = getMessaging()
+      const currentToken = await getToken(messaging, {
         vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
       })
 
-      if (currentToken) {
+      if (currentToken && db) {
         setFcmToken(currentToken)
-        
-        if (auth.currentUser) {
-          await setDoc(doc(db, 'users', auth.currentUser.uid), {
-            fcmToken: currentToken,
-            notificationEnabled: true
-          }, { merge: true })
-        }
-        
+        await setDoc(doc(db, 'users', auth.currentUser.uid), {
+          fcmToken: currentToken,
+          notificationEnabled: true
+        }, { merge: true })
         return currentToken
       }
     } catch (error) {
@@ -102,25 +98,29 @@ export function NotificationProvider({ children }) {
   }
 
   const disableNotifications = async () => {
-    if (messagingInstance && fcmToken) {
-      try {
-        await deleteToken(messagingInstance)
+    try {
+      const { isSupported, deleteToken, getMessaging } = await import('firebase/messaging')
+      const supported = await isSupported()
+      
+      if (supported && fcmToken) {
+        const messaging = getMessaging()
+        await deleteToken(messaging)
         setFcmToken(null)
         
-        if (auth.currentUser) {
+        if (auth?.currentUser && db) {
           await setDoc(doc(db, 'users', auth.currentUser.uid), {
             fcmToken: null,
             notificationEnabled: false
           }, { merge: true })
         }
-      } catch (error) {
-        console.error('Error disabling notifications:', error)
       }
+    } catch (error) {
+      console.error('Error disabling notifications:', error)
     }
   }
 
   const scheduleTaskNotification = async (task) => {
-    if (!auth.currentUser || !task.dueDate) return null
+    if (!auth?.currentUser || !db || !task.dueDate) return null
 
     try {
       const dueDate = new Date(task.dueDate + (task.dueTime ? `T${task.dueTime}` : 'T09:00'))
@@ -165,7 +165,7 @@ export function NotificationProvider({ children }) {
   }
 
   const scheduleHabitNotification = async (habit) => {
-    if (!auth.currentUser) return null
+    if (!auth?.currentUser || !db) return null
 
     try {
       const now = new Date()
@@ -200,7 +200,7 @@ export function NotificationProvider({ children }) {
   }
 
   const cancelNotification = async (notificationId) => {
-    if (!auth.currentUser) return
+    if (!auth?.currentUser || !db) return
 
     try {
       await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'notifications', notificationId))
@@ -210,7 +210,7 @@ export function NotificationProvider({ children }) {
   }
 
   const cancelTaskNotifications = async (taskId) => {
-    if (!auth.currentUser) return
+    if (!auth?.currentUser || !db) return
 
     try {
       const q = query(
@@ -225,23 +225,6 @@ export function NotificationProvider({ children }) {
       console.error('Error canceling task notifications:', error)
     }
   }
-
-  useEffect(() => {
-    if (messagingInstance && auth.currentUser && permission === 'granted') {
-      getFCMToken()
-      
-      const unsub = onMessage(messagingInstance, (payload) => {
-        if (Notification.permission === 'granted') {
-          new Notification(payload.notification?.title || 'TimeFlow', {
-            body: payload.notification?.body || '',
-            icon: '/icon-192x192.png'
-          })
-        }
-      })
-      
-      return unsub
-    }
-  }, [messagingInstance, auth.currentUser, permission])
 
   const value = {
     fcmToken,

@@ -962,7 +962,7 @@ function NoteForm({ note, onClose }) {
 }
 
 function AppContent() {
-  const { currentUser, logout } = useAuth()
+  const { currentUser, logout, loading, error } = useAuth()
   const [dark, setDark] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const [activeView, setActiveView] = useState('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -978,6 +978,26 @@ function AppContent() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
   }, [dark])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="animate-spin w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950 p-4">
+        <div className="text-red-500 text-center">
+          <p className="font-semibold">Configuration Error</p>
+          <p className="text-sm mt-2">{error}</p>
+          <p className="text-xs mt-4 text-gray-500">Please check Firebase environment variables</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!currentUser) {
     return <AuthPage />
