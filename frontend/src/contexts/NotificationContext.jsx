@@ -1,7 +1,7 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { getToken, onMessage, deleteToken } from 'firebase/messaging'
-import { doc, setDoc, getDoc, collection, addDoc, deleteDoc, query, where, onSnapshot, orderBy } from 'firebase/firestore'
-import { auth, db, messaging } from '../firebase'
+import { createContext, useContext, useState, useEffect } from 'react'
+import { getToken, onMessage, deleteToken, isSupported } from 'firebase/messaging'
+import { doc, setDoc, collection, addDoc, deleteDoc, query, where, getDocs, onSnapshot, orderBy } from 'firebase/firestore'
+import { auth, db } from '../firebase'
 
 const NotificationContext = createContext()
 
@@ -13,36 +13,52 @@ export function NotificationProvider({ children }) {
   const [fcmToken, setFcmToken] = useState(null)
   const [permission, setPermission] = useState('default')
   const [scheduledNotifications, setScheduledNotifications] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [messagingInstance, setMessagingInstance] = useState(null)
 
   useEffect(() => {
     if ('Notification' in window) {
       setPermission(Notification.permission)
     }
+    
+    isSupported().then(supported => {
+      if (supported) {
+        import('firebase/messaging').then(({ getMessaging }) => {
+          setMessagingInstance(getMessaging())
+        })
+      }
+    })
   }, [])
 
   useEffect(() => {
-    if (!auth.currentUser) return
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        setScheduledNotifications([])
+        return
+      }
 
-    const q = query(
-      collection(db, 'users', auth.currentUser.uid, 'notifications'),
-      orderBy('scheduledFor', 'asc')
-    )
+      const q = query(
+        collection(db, 'users', user.uid, 'notifications'),
+        orderBy('scheduledFor', 'asc')
+      )
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifications = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      setScheduledNotifications(notifications)
+      const unsub = onSnapshot(q, (snapshot) => {
+        const notifications = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        setScheduledNotifications(notifications)
+      }, (error) => {
+        console.log('Notifications listener error:', error.message)
+      })
+
+      return unsub
     })
 
-    return unsubscribe
-  }, [auth.currentUser])
+    return () => unsubscribe()
+  }, [])
 
   const requestPermission = async () => {
     if (!('Notification' in window)) {
-      console.log('Notifications not supported')
       return false
     }
 
@@ -57,13 +73,12 @@ export function NotificationProvider({ children }) {
   }
 
   const getFCMToken = async () => {
-    if (!messaging) {
-      console.log('Messaging not supported')
+    if (!messagingInstance) {
       return null
     }
 
     try {
-      const currentToken = await getToken(messaging, {
+      const currentToken = await getToken(messagingInstance, {
         vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
       })
 
@@ -87,9 +102,9 @@ export function NotificationProvider({ children }) {
   }
 
   const disableNotifications = async () => {
-    if (messaging && fcmToken) {
+    if (messagingInstance && fcmToken) {
       try {
-        await deleteToken(messaging)
+        await deleteToken(messagingInstance)
         setFcmToken(null)
         
         if (auth.currentUser) {
@@ -107,27 +122,66 @@ export function NotificationProvider({ children }) {
   const scheduleTaskNotification = async (task) => {
     if (!auth.currentUser || !task.dueDate) return null
 
-    const dueDate = new Date(task.dueDate + (task.dueTime ? `T${task.dueTime}` : 'T09:00'))
-    const now = new Date()
+    try {
+      const dueDate = new Date(task.dueDate + (task.dueTime ? `T${task.dueTime}` : 'T09:00'))
+      const now = new Date()
 
-    const notificationTimes = [
-      { minutes: 60, label: '1 hour before' },
-      { minutes: 30, label: '30 minutes before' },
-      { minutes: 15, label: '15 minutes before' },
-    ]
+      const notificationTimes = [
+        { minutes: 60, label: '1 hour before' },
+        { minutes: 30, label: '30 minutes before' },
+        { minutes: 15, label: '15 minutes before' },
+      ]
 
-    const scheduledNotifications = []
+      const scheduled = []
 
-    for (const { minutes, label } of notificationTimes) {
-      const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
-      
-      if (notifyTime <= now) continue
+      for (const { minutes, label } of notificationTimes) {
+        const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
+        
+        if (notifyTime <= now) continue
+
+        const notificationData = {
+          type: 'task',
+          taskId: task.id,
+          title: `⏰ ${task.title}`,
+          body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
+          scheduledFor: notifyTime.toISOString(),
+          createdAt: now.toISOString(),
+          status: 'pending'
+        }
+
+        const docRef = await addDoc(
+          collection(db, 'users', auth.currentUser.uid, 'notifications'),
+          notificationData
+        )
+
+        scheduled.push({ id: docRef.id, ...notificationData })
+      }
+
+      return scheduled
+    } catch (error) {
+      console.error('Error scheduling task notification:', error)
+      return null
+    }
+  }
+
+  const scheduleHabitNotification = async (habit) => {
+    if (!auth.currentUser) return null
+
+    try {
+      const now = new Date()
+      const today = now.toISOString().split('T')[0]
+      const reminderTime = habit.reminderTime || '09:00'
+      const notifyTime = new Date(`${today}T${reminderTime}`)
+
+      if (notifyTime <= now) {
+        notifyTime.setDate(notifyTime.getDate() + 1)
+      }
 
       const notificationData = {
-        type: 'task',
-        taskId: task.id,
-        title: `⏰ ${task.title}`,
-        body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
+        type: 'habit',
+        habitId: habit.id,
+        title: `🎯 ${habit.name}`,
+        body: "Time to complete your habit! Keep your streak going! 🔥",
         scheduledFor: notifyTime.toISOString(),
         createdAt: now.toISOString(),
         status: 'pending'
@@ -138,45 +192,11 @@ export function NotificationProvider({ children }) {
         notificationData
       )
 
-      scheduledNotifications.push({ id: docRef.id, ...notificationData })
-
-      if ('serviceWorker' in navigator && 'sync' in navigator.serviceWorker) {
-        const swRegistration = await navigator.serviceWorker.ready
-        await swRegistration.sync.register(`notification-${docRef.id}`)
-      }
+      return { id: docRef.id, ...notificationData }
+    } catch (error) {
+      console.error('Error scheduling habit notification:', error)
+      return null
     }
-
-    return scheduledNotifications
-  }
-
-  const scheduleHabitNotification = async (habit) => {
-    if (!auth.currentUser) return null
-
-    const now = new Date()
-    const today = now.toISOString().split('T')[0]
-    const reminderTime = habit.reminderTime || '09:00'
-    const notifyTime = new Date(`${today}T${reminderTime}`)
-
-    if (notifyTime <= now) {
-      notifyTime.setDate(notifyTime.getDate() + 1)
-    }
-
-    const notificationData = {
-      type: 'habit',
-      habitId: habit.id,
-      title: `🎯 ${habit.name}`,
-      body: "Time to complete your habit! Keep your streak going! 🔥",
-      scheduledFor: notifyTime.toISOString(),
-      createdAt: now.toISOString(),
-      status: 'pending'
-    }
-
-    const docRef = await addDoc(
-      collection(db, 'users', auth.currentUser.uid, 'notifications'),
-      notificationData
-    )
-
-    return { id: docRef.id, ...notificationData }
   }
 
   const cancelNotification = async (notificationId) => {
@@ -192,53 +212,40 @@ export function NotificationProvider({ children }) {
   const cancelTaskNotifications = async (taskId) => {
     if (!auth.currentUser) return
 
-    const q = query(
-      collection(db, 'users', auth.currentUser.uid, 'notifications'),
-      where('taskId', '==', taskId)
-    )
+    try {
+      const q = query(
+        collection(db, 'users', auth.currentUser.uid, 'notifications'),
+        where('taskId', '==', taskId)
+      )
 
-    const snapshot = await getDocs(q)
-    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref))
-    await Promise.all(deletePromises)
-  }
-
-  const initializeNotifications = async () => {
-    setLoading(true)
-    
-    if (permission === 'granted') {
-      await getFCMToken()
+      const snapshot = await getDocs(q)
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref))
+      await Promise.all(deletePromises)
+    } catch (error) {
+      console.error('Error canceling task notifications:', error)
     }
-
-    if (messaging) {
-      onMessage(messaging, (payload) => {
-        console.log('Foreground message:', payload)
-        
-        if (Notification.permission === 'granted') {
-          new Notification(payload.notification?.title || 'TimeFlow', {
-            body: payload.notification?.body || '',
-            icon: '/icon-192x192.png',
-            badge: '/badge-72x72.png',
-            tag: payload.data?.tag
-          })
-        }
-      })
-    }
-
-    setLoading(false)
   }
 
   useEffect(() => {
-    if (auth.currentUser && permission === 'granted') {
-      initializeNotifications()
-    } else {
-      setLoading(false)
+    if (messagingInstance && auth.currentUser && permission === 'granted') {
+      getFCMToken()
+      
+      const unsub = onMessage(messagingInstance, (payload) => {
+        if (Notification.permission === 'granted') {
+          new Notification(payload.notification?.title || 'TimeFlow', {
+            body: payload.notification?.body || '',
+            icon: '/icon-192x192.png'
+          })
+        }
+      })
+      
+      return unsub
     }
-  }, [auth.currentUser, permission])
+  }, [messagingInstance, auth.currentUser, permission])
 
   const value = {
     fcmToken,
     permission,
-    loading,
     scheduledNotifications,
     requestPermission,
     getFCMToken,
@@ -246,8 +253,7 @@ export function NotificationProvider({ children }) {
     scheduleTaskNotification,
     scheduleHabitNotification,
     cancelNotification,
-    cancelTaskNotifications,
-    initializeNotifications
+    cancelTaskNotifications
   }
 
   return (
