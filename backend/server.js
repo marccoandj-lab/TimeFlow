@@ -81,10 +81,13 @@ async function sendPushNotification(fcmToken, title, body, data = {}) {
 
 async function processScheduledNotifications() {
   const now = new Date();
-  console.log('Checking notifications at:', now.toISOString());
   
   try {
     const usersSnapshot = await firestore.collection('users').get();
+    
+    if (usersSnapshot.empty) {
+      return;
+    }
     
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
@@ -92,32 +95,38 @@ async function processScheduledNotifications() {
       
       if (!userData.fcmToken || !userData.notificationEnabled) continue;
       
-      const notificationsSnapshot = await firestore
-        .collection('users')
-        .doc(userId)
-        .collection('notifications')
-        .where('status', '==', 'pending')
-        .where('scheduledFor', '<=', now.toISOString())
-        .get();
-      
-      for (const notifDoc of notificationsSnapshot.docs) {
-        const notif = notifDoc.data();
+      try {
+        const notificationsSnapshot = await firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .where('status', '==', 'pending')
+          .where('scheduledFor', '<=', now.toISOString())
+          .get();
         
-        await sendPushNotification(
-          userData.fcmToken,
-          notif.title,
-          notif.body,
-          { type: notif.type, id: notif.taskId || notif.habitId }
-        );
-        
-        await notifDoc.ref.update({ 
-          status: 'sent', 
-          sentAt: now.toISOString() 
-        });
+        for (const notifDoc of notificationsSnapshot.docs) {
+          const notif = notifDoc.data();
+          
+          await sendPushNotification(
+            userData.fcmToken,
+            notif.title,
+            notif.body,
+            { type: notif.type, id: notif.taskId || notif.habitId }
+          );
+          
+          await notifDoc.ref.update({ 
+            status: 'sent', 
+            sentAt: now.toISOString() 
+          });
+        }
+      } catch (userError) {
+        console.error(`Error for user ${userId}:`, userError.message);
       }
     }
   } catch (error) {
-    console.error('Error processing notifications:', error);
+    if (error.code !== 5) {
+      console.error('Error processing notifications:', error.message);
+    }
   }
 }
 
