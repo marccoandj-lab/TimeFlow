@@ -1,13 +1,11 @@
 services:
   - type: web
     name: timeflow
-    env: node
+    runtime: node
     region: oregon
     plan: free
-    buildCommand: npm install && cd frontend && npm install && npm run build
-    startCommand: cd backend && npm start
+    buildCommand: npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend
+    startCommand: node backend/server.js
     envVars:
       - key: NODE_VERSION
-        value: 18
-      - key: DATA_DIR
-        value: /opt/render/project/src/backend/data
+        value: 20
