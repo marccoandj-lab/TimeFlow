@@ -1,10 +1,10 @@
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect, createContext, useContext, useRef } from 'react'
 import { format, isToday, isTomorrow, isPast, parseISO, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek } from 'date-fns'
 import { 
   LayoutDashboard, CheckSquare, Calendar, Clock, Target, StickyNote, Moon, Sun,
   Plus, Trash2, Edit3, Search, Play, Pause, RotateCcw,
   CheckCircle2, Circle, AlertTriangle, Timer, X, Menu, Sparkles, TrendingUp,
-  ChevronLeft, ChevronRight, Info, Zap, Coffee, Brain, Dumbbell, BookOpen
+  ChevronLeft, ChevronRight, Info, Zap, Coffee, Brain, Dumbbell, BookOpen, Home
 } from 'lucide-react'
 
 const API_BASE = '/api'
@@ -41,19 +41,42 @@ const priorityColors = { high: 'text-red-500 bg-red-50 dark:bg-red-950/30', medi
 const categoryColors = { Work: '#ef4444', Personal: '#10b981', Health: '#f59e0b', Learning: '#8b5cf6', Shopping: '#ec4899', general: '#6366f1' }
 
 function Modal({ isOpen, onClose, title, children, size = 'md' }) {
+  const modalRef = useRef(null)
+  
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [isOpen])
+  
   if (!isOpen) return null
+  
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
   const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' }
+  
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
-      <div className={`card relative z-10 w-full ${sizes[size]} max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200`}>
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div 
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" 
+        onClick={onClose} 
+      />
+      <div 
+        ref={modalRef}
+        className={`relative z-10 w-full ${sizes[size]} ${isMobile ? 'mobile-modal animate-slide-up' : 'max-h-[85vh] rounded-2xl'} overflow-hidden bg-white dark:bg-gray-800 shadow-2xl`}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-            <X className="w-4 h-4" />
+          <button 
+            onClick={onClose} 
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors touch-target flex items-center justify-center"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-4 overflow-auto">{children}</div>
+        <div className="p-4 overflow-auto max-h-[calc(85vh-60px)]">{children}</div>
       </div>
     </div>
   )
@@ -61,14 +84,48 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
 
 function EmptyState({ icon: Icon, title, description, action }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center mb-4">
-        <Icon className="w-8 h-8 text-gray-400" />
+    <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center mb-3">
+        <Icon className="w-7 h-7 text-gray-400" />
       </div>
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{title}</h3>
-      <p className="text-gray-500 dark:text-gray-400 mt-1 mb-4">{description}</p>
+      <h3 className="text-base font-medium text-gray-900 dark:text-gray-100">{title}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 mb-3">{description}</p>
       {action}
     </div>
+  )
+}
+
+function MobileNav({ activeView, setActiveView }) {
+  const navItems = [
+    { id: 'dashboard', icon: Home, label: 'Home' },
+    { id: 'tasks', icon: CheckSquare, label: 'Tasks' },
+    { id: 'timer', icon: Timer, label: 'Focus' },
+    { id: 'habits', icon: Target, label: 'Habits' },
+    { id: 'notes', icon: StickyNote, label: 'Notes' },
+  ]
+  
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 safe-area-bottom z-40">
+      <div className="flex items-center justify-around px-2 py-1">
+        {navItems.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setActiveView(item.id)}
+            className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all touch-target relative ${
+              activeView === item.id 
+                ? 'text-indigo-600 dark:text-indigo-400' 
+                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+            }`}
+          >
+            <item.icon className={`w-5 h-5 ${activeView === item.id ? 'text-indigo-600 dark:text-indigo-400' : ''}`} />
+            <span className="text-[10px] font-medium mt-0.5">{item.label}</span>
+            {activeView === item.id && (
+              <div className="absolute bottom-0 w-8 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full" />
+            )}
+          </button>
+        ))}
+      </div>
+    </nav>
   )
 }
 
@@ -97,7 +154,7 @@ function Sidebar({ activeView, setActiveView, collapsed }) {
           <button
             key={item.id}
             onClick={() => setActiveView(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative touch-target ${
               activeView === item.id 
                 ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400' 
                 : 'hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -117,7 +174,7 @@ function Sidebar({ activeView, setActiveView, collapsed }) {
       <div className="p-2 border-t border-gray-100 dark:border-gray-800">
         <button
           onClick={() => setDark(!dark)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors touch-target"
         >
           {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
           {!collapsed && <span className="text-sm">{dark ? 'Light Mode' : 'Dark Mode'}</span>}
@@ -136,15 +193,15 @@ function StatCard({ icon: Icon, label, value, color, trend }) {
     amber: 'from-amber-500 to-orange-500'
   }
   return (
-    <div className="card p-5 group hover:shadow-lg transition-shadow">
+    <div className="card p-3 sm:p-4 group hover:shadow-lg transition-shadow">
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{label}</p>
-          <p className="text-3xl font-bold">{value}</p>
-          {trend && <p className="text-xs text-emerald-500 mt-1">{trend}</p>}
+        <div className="flex-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{label}</p>
+          <p className="text-xl sm:text-2xl font-bold">{value}</p>
+          {trend && <p className="text-xs text-emerald-500 mt-0.5">{trend}</p>}
         </div>
-        <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${colors[color]} flex items-center justify-center opacity-90 group-hover:opacity-100 transition-opacity`}>
-          <Icon className="w-5 h-5 text-white" />
+        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${colors[color]} flex items-center justify-center opacity-90 group-hover:opacity-100 transition-opacity flex-shrink-0`}>
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         </div>
       </div>
     </div>
@@ -166,7 +223,7 @@ function Dashboard() {
   }, [])
 
   if (!stats) return (
-    <div className="flex items-center justify-center h-64">
+    <div className="flex items-center justify-center h-40">
       <div className="animate-spin w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full" />
     </div>
   )
@@ -175,25 +232,25 @@ function Dashboard() {
   const overdueTasks = tasks.filter(t => t.dueDate && isPast(parseISO(t.dueDate)) && !isToday(parseISO(t.dueDate)))
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 pb-20 md:pb-4">
+      <div className="flex items-center justify-between mb-2">
         <div>
-          <h1 className="text-2xl font-bold">Welcome back!</h1>
-          <p className="text-gray-500 dark:text-gray-400">{format(new Date(), 'EEEE, MMMM d')}</p>
+          <h1 className="text-xl font-bold">Welcome back!</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{format(new Date(), 'EEEE, MMMM d')}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={CheckSquare} label="Total Tasks" value={stats.totalTasks} color="blue" />
-        <StatCard icon={CheckCircle2} label="Completed" value={stats.completedTasks} color="green" trend={stats.completionRate + '% done'} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <StatCard icon={CheckSquare} label="Tasks" value={stats.totalTasks} color="blue" />
+        <StatCard icon={CheckCircle2} label="Done" value={stats.completedTasks} color="green" trend={stats.completionRate + '%'} />
         <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueTasks} color="red" />
-        <StatCard icon={Target} label="Habits Today" value={stats.habitsCompletedToday} color="purple" />
+        <StatCard icon={Target} label="Habits" value={stats.habitsCompletedToday} color="purple" />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-3 sm:gap-4">
         <div className="lg:col-span-2 card">
-          <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <h2 className="font-semibold flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500" /> Upcoming</h2>
+          <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <h2 className="font-semibold text-sm flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500" /> Upcoming</h2>
             {upcomingTasks.length > 0 && <span className="text-xs bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">{upcomingTasks.length}</span>}
           </div>
           <div className="p-2">
@@ -202,8 +259,8 @@ function Dashboard() {
             ) : (
               <div className="space-y-1">
                 {upcomingTasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <Circle className={`w-2 h-2 rounded-full ${task.priority === 'high' ? 'fill-red-500' : task.priority === 'low' ? 'fill-slate-400' : 'fill-amber-500'}`} />
+                  <div key={task.id} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <Circle className={`w-2 h-2 rounded-full flex-shrink-0 ${task.priority === 'high' ? 'fill-red-500' : task.priority === 'low' ? 'fill-slate-400' : 'fill-amber-500'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{task.title}</p>
                       <p className="text-xs text-gray-400">
@@ -211,7 +268,7 @@ function Dashboard() {
                         {task.dueTime && <span className="ml-1">at {task.dueTime}</span>}
                       </p>
                     </div>
-                    <span className="text-xs px-2 py-1 rounded-lg" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>{task.category}</span>
+                    <span className="text-xs px-2 py-1 rounded-lg flex-shrink-0 hidden sm:inline" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>{task.category}</span>
                   </div>
                 ))}
               </div>
@@ -220,19 +277,19 @@ function Dashboard() {
         </div>
 
         <div className="card">
-          <div className="p-4 border-b border-gray-100 dark:border-gray-800">
-            <h2 className="font-semibold flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500" /> Habits</h2>
+          <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+            <h2 className="font-semibold text-sm flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500" /> Habits</h2>
           </div>
           <div className="p-2">
             {habits.length === 0 ? (
               <EmptyState icon={Target} title="No habits yet" description="Start building routines" />
             ) : (
               <div className="space-y-1">
-                {habits.slice(0, 4).map(habit => (
-                  <div key={habit.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: habit.color }} />
+                {habits.slice(0, 3).map(habit => (
+                  <div key={habit.id} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: habit.color }} />
                     <span className="flex-1 text-sm font-medium truncate">{habit.name}</span>
-                    <span className="text-sm font-bold" style={{ color: habit.color }}>{habit.streak}🔥</span>
+                    <span className="text-sm font-bold flex-shrink-0" style={{ color: habit.color }}>{habit.streak}🔥</span>
                   </div>
                 ))}
               </div>
@@ -243,12 +300,12 @@ function Dashboard() {
 
       {overdueTasks.length > 0 && (
         <div className="card border-red-200 dark:border-red-900/50">
-          <div className="p-4 border-b border-red-100 dark:border-red-900/30">
-            <h2 className="font-semibold text-red-600 flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Overdue ({overdueTasks.length})</h2>
+          <div className="p-3 border-b border-red-100 dark:border-red-900/30">
+            <h2 className="font-semibold text-sm text-red-600 flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Overdue ({overdueTasks.length})</h2>
           </div>
           <div className="p-2 space-y-1">
-            {overdueTasks.slice(0, 3).map(task => (
-              <div key={task.id} className="flex items-center gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/20">
+            {overdueTasks.slice(0, 2).map(task => (
+              <div key={task.id} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-xl bg-red-50 dark:bg-red-950/20">
                 <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{task.title}</p>
@@ -291,55 +348,56 @@ function TasksView() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Tasks</h1>
-          <p className="text-gray-500 text-sm">{filteredTasks.filter(t => t.status !== 'completed').length} pending</p>
+          <h1 className="text-xl font-bold">Tasks</h1>
+          <p className="text-xs text-gray-500">{filteredTasks.filter(t => t.status !== 'completed').length} pending</p>
         </div>
-        <button onClick={() => { setEditingTask(null); setShowModal(true) }} className="btn btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Add Task
+        <button onClick={() => { setEditingTask(null); setShowModal(true) }} className="btn btn-primary flex items-center gap-2 text-sm">
+          <Plus className="w-4 h-4" /> Add
         </button>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-9" />
-        </div>
-        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
-          {['all', 'today', 'pending', 'completed'].map(f => (
-            <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === f ? 'bg-white dark:bg-gray-700 shadow-sm' : 'hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
+          <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-9 text-sm" />
         </div>
       </div>
 
+      <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        {['all', 'today', 'pending', 'completed'].map(f => (
+          <button key={f} onClick={() => setFilter(f)} className={`px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors touch-target ${filter === f ? 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400' : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
       {filteredTasks.length === 0 ? (
-        <EmptyState icon={CheckSquare} title="No tasks found" description="Create a task to get started" action={<button onClick={() => setShowModal(true)} className="btn btn-primary">Create Task</button>} />
+        <EmptyState icon={CheckSquare} title="No tasks found" description="Create a task to get started" action={<button onClick={() => setShowModal(true)} className="btn btn-primary text-sm">Create Task</button>} />
       ) : (
         <div className="space-y-2">
           {filteredTasks.map(task => (
-            <div key={task.id} className={`card p-4 flex items-center gap-4 group hover:shadow-md transition-all ${task.status === 'completed' ? 'opacity-50' : ''}`}>
-              <button onClick={() => handleToggle(task)} className="flex-shrink-0">
-                {task.status === 'completed' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Circle className={`w-5 h-5 ${task.priority === 'high' ? 'text-red-500' : task.priority === 'medium' ? 'text-amber-500' : 'text-slate-400'}`} />}
+            <div key={task.id} className={`card p-3 flex items-center gap-3 group active:bg-gray-50 dark:active:bg-gray-700/50 transition-all ${task.status === 'completed' ? 'opacity-50' : ''}`}>
+              <button onClick={() => handleToggle(task)} className="touch-target flex items-center justify-center flex-shrink-0">
+                {task.status === 'completed' ? <CheckCircle2 className="w-6 h-6 text-emerald-500" /> : <Circle className={`w-6 h-6 ${task.priority === 'high' ? 'text-red-500' : task.priority === 'medium' ? 'text-amber-500' : 'text-slate-400'}`} />}
               </button>
               <div className="flex-1 min-w-0">
-                <p className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>{task.title}</p>
+                <p className={`font-medium text-sm ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>{task.title}</p>
                 <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                   {task.dueDate && (
                     <span className={isPast(parseISO(task.dueDate)) && task.status !== 'completed' ? 'text-red-500' : ''}>
                       {isToday(parseISO(task.dueDate)) ? 'Today' : isTomorrow(parseISO(task.dueDate)) ? 'Tomorrow' : format(parseISO(task.dueDate), 'MMM d')}
                     </span>
                   )}
-                  {task.estimatedMinutes && <span>• {task.estimatedMinutes}min</span>}
+                  {task.estimatedMinutes && <span>• {task.estimatedMinutes}m</span>}
                 </div>
               </div>
-              <span className="hidden sm:block text-xs px-2 py-1 rounded-lg" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>{task.category}</span>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { setEditingTask(task); setShowModal(true) }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><Edit3 className="w-4 h-4" /></button>
-                <button onClick={() => handleDelete(task.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+              <span className="hidden sm:block text-xs px-2 py-1 rounded-lg flex-shrink-0" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>{task.category}</span>
+              <div className="flex gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <button onClick={() => { setEditingTask(task); setShowModal(true) }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-target"><Edit3 className="w-4 h-4" /></button>
+                <button onClick={() => handleDelete(task.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded-lg touch-target"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
           ))}
@@ -431,19 +489,19 @@ function CalendarView() {
   const getTasksForDay = (date) => tasks.filter(t => t.dueDate && isSameDay(parseISO(t.dueDate), date))
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Calendar</h1>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><ChevronLeft className="w-5 h-5" /></button>
+        <h1 className="text-xl font-bold">Calendar</h1>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg touch-target"><ChevronLeft className="w-5 h-5" /></button>
           <button onClick={() => setCurrentDate(new Date())} className="btn btn-secondary text-sm">Today</button>
-          <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><ChevronRight className="w-5 h-5" /></button>
+          <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg touch-target"><ChevronRight className="w-5 h-5" /></button>
         </div>
       </div>
 
       <div className="card overflow-hidden">
         <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-800/50">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="p-3 text-center text-xs font-semibold text-gray-500">{d}</div>)}
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i} className="p-2 text-center text-xs font-semibold text-gray-500">{d}</div>)}
         </div>
         <div className="grid grid-cols-7">
           {days.map((day, i) => {
@@ -452,13 +510,13 @@ function CalendarView() {
             const isSelected = selectedDate && isSameDay(day, selectedDate)
             const isTodayDate = isToday(day)
             return (
-              <div key={i} onClick={() => setSelectedDate(day)} className={`min-h-24 p-2 border-t border-l border-gray-100 dark:border-gray-800 cursor-pointer transition-colors ${!isCurrentMonth ? 'bg-gray-50/50 dark:bg-gray-900/50' : ''} ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>
-                <div className={`text-sm font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isTodayDate ? 'bg-indigo-600 text-white' : !isCurrentMonth ? 'text-gray-400' : ''}`}>{format(day, 'd')}</div>
+              <div key={i} onClick={() => setSelectedDate(day)} className={`min-h-14 sm:min-h-20 p-1 border-t border-l border-gray-100 dark:border-gray-700 cursor-pointer transition-colors ${!isCurrentMonth ? 'bg-gray-50/50 dark:bg-gray-900/50' : ''} ${isSelected ? 'bg-indigo-50 dark:bg-indigo-950/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>
+                <div className={`text-xs font-medium mb-0.5 w-6 h-6 flex items-center justify-center rounded-full ${isTodayDate ? 'bg-indigo-600 text-white' : !isCurrentMonth ? 'text-gray-400' : ''}`}>{format(day, 'd')}</div>
                 <div className="space-y-0.5">
                   {dayTasks.slice(0, 2).map(t => (
-                    <div key={t.id} className={`text-xs px-1.5 py-0.5 rounded truncate ${t.status === 'completed' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : t.priority === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>{t.title}</div>
+                    <div key={t.id} className={`text-[9px] sm:text-[10px] px-1 py-0.5 rounded truncate ${t.status === 'completed' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : t.priority === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>{t.title}</div>
                   ))}
-                  {dayTasks.length > 2 && <div className="text-xs text-gray-400 px-1">+{dayTasks.length - 2}</div>}
+                  {dayTasks.length > 2 && <div className="text-[9px] text-gray-400 px-1">+{dayTasks.length - 2}</div>}
                 </div>
               </div>
             )
@@ -467,18 +525,18 @@ function CalendarView() {
       </div>
 
       {selectedDate && (
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">{isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE, MMMM d')}</h3>
-            <button onClick={() => setSelectedDate(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"><X className="w-4 h-4" /></button>
+        <div className="card p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-sm">{isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE, MMMM d')}</h3>
+            <button onClick={() => setSelectedDate(null)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><X className="w-4 h-4" /></button>
           </div>
-          {getTasksForDay(selectedDate).length === 0 ? <p className="text-gray-400 text-sm text-center py-4">No tasks</p> : (
+          {getTasksForDay(selectedDate).length === 0 ? <p className="text-gray-400 text-sm text-center py-3">No tasks</p> : (
             <div className="space-y-1">
               {getTasksForDay(selectedDate).map(t => (
-                <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                   <Circle className={`w-2 h-2 rounded-full ${t.priority === 'high' ? 'fill-red-500' : 'fill-amber-500'}`} />
-                  <span className="text-sm">{t.title}</span>
-                  {t.dueTime && <span className="text-xs text-gray-400 ml-auto">{t.dueTime}</span>}
+                  <span className="text-sm flex-1 truncate">{t.title}</span>
+                  {t.dueTime && <span className="text-xs text-gray-400">{t.dueTime}</span>}
                 </div>
               ))}
             </div>
@@ -498,11 +556,11 @@ function PomodoroTimer() {
   const [customMinutes, setCustomMinutes] = useState(25)
 
   const presets = [
-    { label: 'Focus', mins: 25, icon: Brain, color: 'indigo', desc: 'Deep work session' },
-    { label: 'Short', mins: 5, icon: Coffee, color: 'emerald', desc: 'Quick break' },
-    { label: 'Long', mins: 15, icon: Zap, color: 'amber', desc: 'Longer rest' },
-    { label: 'Study', mins: 50, icon: BookOpen, color: 'purple', desc: 'Extended focus' },
-    { label: 'Exercise', mins: 30, icon: Dumbbell, color: 'rose', desc: 'Workout time' },
+    { label: 'Focus', mins: 25, icon: Brain, desc: 'Deep work' },
+    { label: 'Short', mins: 5, icon: Coffee, desc: 'Break' },
+    { label: 'Long', mins: 15, icon: Zap, desc: 'Rest' },
+    { label: 'Study', mins: 50, icon: BookOpen, desc: 'Extended' },
+    { label: 'Workout', mins: 30, icon: Dumbbell, desc: 'Exercise' },
   ]
 
   useEffect(() => {
@@ -555,27 +613,27 @@ function PomodoroTimer() {
   const formatTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 
   return (
-    <div className="space-y-6 max-w-xl mx-auto">
+    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
       <div className="text-center">
-        <h1 className="text-2xl font-bold">Focus Timer</h1>
-        <p className="text-gray-500 text-sm">Stay productive with timed sessions</p>
+        <h1 className="text-xl font-bold">Focus Timer</h1>
+        <p className="text-xs text-gray-500">Stay productive with timed sessions</p>
       </div>
 
-      <div className="card p-6">
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+      <div className="card p-3 sm:p-4">
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
           {presets.map(p => (
-            <button key={p.label} onClick={() => selectPreset(p)} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[70px] ${mode === p.label.toLowerCase() ? `bg-${p.color}-100 dark:bg-${p.color}-950/50 text-${p.color}-600 dark:text-${p.color}-400 ring-1 ring-${p.color}-200 dark:ring-${p.color}-800` : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+            <button key={p.label} onClick={() => selectPreset(p)} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[60px] touch-target ${mode === p.label.toLowerCase() ? 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-200 dark:ring-indigo-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
               <p.icon className="w-4 h-4" />
               <span className="text-xs font-medium">{p.label}</span>
-              <span className="text-xs text-gray-400">{p.mins}m</span>
+              <span className="text-[10px] text-gray-400">{p.mins}m</span>
             </button>
           ))}
         </div>
 
-        <div className="relative w-56 h-56 mx-auto mb-6">
+        <div className="relative w-44 h-44 sm:w-52 sm:h-52 mx-auto mb-4">
           <svg className="w-full h-full transform -rotate-90">
-            <circle cx="112" cy="112" r="104" fill="none" stroke="currentColor" strokeWidth="6" className="text-gray-200 dark:text-gray-800" />
-            <circle cx="112" cy="112" r="104" fill="none" stroke="url(#gradient)" strokeWidth="6" strokeDasharray={653} strokeDashoffset={653 * (1 - progress())} strokeLinecap="round" className="transition-all duration-1000" />
+            <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="6" className="text-gray-200 dark:text-gray-700" />
+            <circle cx="50%" cy="50%" r="45%" fill="none" stroke="url(#gradient)" strokeWidth="6" strokeDasharray={1000} strokeDashoffset={1000 * (1 - progress())} strokeLinecap="round" className="transition-all duration-1000" />
             <defs>
               <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#6366f1" />
@@ -584,44 +642,34 @@ function PomodoroTimer() {
             </defs>
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-5xl font-bold tracking-tight">{formatTime}</span>
+            <span className="text-4xl sm:text-5xl font-bold tracking-tight">{formatTime}</span>
             <span className="text-gray-400 text-sm mt-1 capitalize">{mode}</span>
           </div>
         </div>
 
-        <div className="flex justify-center gap-3 mb-6">
+        <div className="flex justify-center gap-3 mb-4">
           <button onClick={() => setIsRunning(!isRunning)} className={`btn ${isRunning ? 'btn-secondary' : 'btn-primary'} flex items-center gap-2`}>
             {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
             {isRunning ? 'Pause' : 'Start'}
           </button>
-          <button onClick={reset} className="btn btn-secondary flex items-center gap-2"><RotateCcw className="w-4 h-4" /> Reset</button>
+          <button onClick={reset} className="btn btn-secondary flex items-center gap-2"><RotateCcw className="w-4 h-4" /></button>
         </div>
 
-        <div className="flex items-center gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+        <div className="flex items-center gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
           <input type="number" value={customMinutes} onChange={(e) => setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))} className="input w-20 text-center" min="1" max="120" />
-          <span className="text-sm text-gray-500">minutes</span>
-          <button onClick={setCustom} className="btn btn-secondary text-sm ml-auto">Set Custom</button>
+          <span className="text-sm text-gray-500">min</span>
+          <button onClick={setCustom} className="btn btn-secondary text-sm ml-auto">Set</button>
         </div>
       </div>
 
-      <div className="card p-4">
+      <div className="card p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">Sessions completed</p>
-            <p className="text-2xl font-bold">{sessions}</p>
+            <p className="text-xs text-gray-500">Sessions</p>
+            <p className="text-xl font-bold">{sessions}</p>
           </div>
           <div className="flex gap-1">
-            {[...Array(4)].map((_, i) => <div key={i} className={`w-3 h-3 rounded-full ${i < sessions ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-700'}`} />)}
-          </div>
-        </div>
-      </div>
-
-      <div className="card p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-0">
-        <div className="flex items-start gap-3">
-          <Info className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium text-sm">How to use</p>
-            <p className="text-xs text-gray-500 mt-1">Choose a preset or set a custom time. Focus on your task until the timer ends. Take breaks between sessions to stay productive!</p>
+            {[...Array(4)].map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full ${i < sessions ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-700'}`} />)}
           </div>
         </div>
       </div>
@@ -647,34 +695,34 @@ function HabitsView() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Habits</h1>
-          <p className="text-gray-500 text-sm">Build consistent daily routines</p>
+          <h1 className="text-xl font-bold">Habits</h1>
+          <p className="text-xs text-gray-500">Build consistent daily routines</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary flex items-center gap-2"><Plus className="w-4 h-4" /> Add Habit</button>
+        <button onClick={() => setShowModal(true)} className="btn btn-primary flex items-center gap-2 text-sm"><Plus className="w-4 h-4" /> Add</button>
       </div>
 
       {habits.length === 0 ? (
-        <EmptyState icon={Target} title="No habits yet" description="Start building better habits" action={<button onClick={() => setShowModal(true)} className="btn btn-primary">Create Habit</button>} />
+        <EmptyState icon={Target} title="No habits yet" description="Start building better habits" action={<button onClick={() => setShowModal(true)} className="btn btn-primary text-sm">Create Habit</button>} />
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
           {habits.map(h => (
-            <div key={h.id} className="card p-4 group hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-3">
+            <div key={h.id} className="card p-3 group active:bg-gray-50 dark:active:bg-gray-700/50 transition-colors">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: h.color }} />
-                  <span className="font-medium">{h.name}</span>
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: h.color }} />
+                  <span className="font-medium text-sm truncate">{h.name}</span>
                 </div>
-                <button onClick={() => handleDelete(h.id)} className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500 transition-all"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => handleDelete(h.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-500 touch-target"><Trash2 className="w-4 h-4" /></button>
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold" style={{ color: h.color }}>{h.streak}</p>
+                  <p className="text-xl font-bold" style={{ color: h.color }}>{h.streak}</p>
                   <p className="text-xs text-gray-400">day streak</p>
                 </div>
-                <button onClick={() => handleComplete(h.id)} className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 flex items-center justify-center transition-colors"><CheckCircle2 className="w-5 h-5 text-emerald-600" /></button>
+                <button onClick={() => handleComplete(h.id)} className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 flex items-center justify-center transition-colors touch-target"><CheckCircle2 className="w-6 h-6 text-emerald-600" /></button>
               </div>
             </div>
           ))}
@@ -706,7 +754,7 @@ function HabitForm({ onClose }) {
       </div>
       <div>
         <label className="label">Color</label>
-        <div className="flex gap-2">{colors.map(c => <button type="button" key={c} onClick={() => setForm({...form, color: c})} className={`w-8 h-8 rounded-full transition-transform ${form.color === c ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : ''}`} style={{ backgroundColor: c }} />)}</div>
+        <div className="flex gap-3 flex-wrap">{colors.map(c => <button type="button" key={c} onClick={() => setForm({...form, color: c})} className={`w-10 h-10 rounded-full transition-transform touch-target ${form.color === c ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : ''}`} style={{ backgroundColor: c }} />)}</div>
       </div>
       <div className="flex gap-3 pt-2">
         <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
@@ -728,30 +776,30 @@ function NotesView() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Notes</h1>
-          <p className="text-gray-500 text-sm">Quick thoughts and ideas</p>
+          <h1 className="text-xl font-bold">Notes</h1>
+          <p className="text-xs text-gray-500">Quick thoughts and ideas</p>
         </div>
-        <button onClick={() => { setEditing(null); setShowModal(true) }} className="btn btn-primary flex items-center gap-2"><Plus className="w-4 h-4" /> New Note</button>
+        <button onClick={() => { setEditing(null); setShowModal(true) }} className="btn btn-primary flex items-center gap-2 text-sm"><Plus className="w-4 h-4" /> New</button>
       </div>
 
       {notes.length === 0 ? (
-        <EmptyState icon={StickyNote} title="No notes yet" description="Jot down your thoughts" action={<button onClick={() => setShowModal(true)} className="btn btn-primary">Create Note</button>} />
+        <EmptyState icon={StickyNote} title="No notes yet" description="Jot down your thoughts" action={<button onClick={() => setShowModal(true)} className="btn btn-primary text-sm">Create Note</button>} />
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
           {notes.map(n => (
-            <div key={n.id} className="card p-4 group hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-medium">{n.title || 'Untitled'}</h3>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setEditing(n); setShowModal(true) }} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"><Edit3 className="w-3 h-3" /></button>
-                  <button onClick={() => handleDelete(n.id)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500"><Trash2 className="w-3 h-3" /></button>
+            <div key={n.id} className="card p-3 group active:bg-gray-50 dark:active:bg-gray-700/50 transition-colors">
+              <div className="flex items-start justify-between mb-1">
+                <h3 className="font-medium text-sm truncate flex-1">{n.title || 'Untitled'}</h3>
+                <div className="flex gap-0.5">
+                  <button onClick={() => { setEditing(n); setShowModal(true) }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-target"><Edit3 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => handleDelete(n.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-500 touch-target"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-3 whitespace-pre-wrap">{n.content}</p>
-              <p className="text-xs text-gray-400 mt-3">{format(new Date(n.createdAt), 'MMM d, h:mm a')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-3 whitespace-pre-wrap">{n.content}</p>
+              <p className="text-[10px] text-gray-400 mt-2">{format(new Date(n.createdAt), 'MMM d, h:mm a')}</p>
             </div>
           ))}
         </div>
@@ -782,7 +830,7 @@ function NoteForm({ note, onClose }) {
       </div>
       <div>
         <label className="label">Content</label>
-        <textarea value={form.content} onChange={(e) => setForm({...form, content: e.target.value})} className="input min-h-[150px]" placeholder="Write your note..." />
+        <textarea value={form.content} onChange={(e) => setForm({...form, content: e.target.value})} className="input min-h-[150px] resize-none" placeholder="Write your note..." />
       </div>
       <div className="flex gap-3 pt-2">
         <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
@@ -796,6 +844,14 @@ export default function App() {
   const [dark, setDark] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const [activeView, setActiveView] = useState('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -807,11 +863,26 @@ export default function App() {
   return (
     <ThemeContext.Provider value={{ dark, setDark }}>
       <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
-        <Sidebar activeView={activeView} setActiveView={setActiveView} collapsed={sidebarCollapsed} />
-        <main className="flex-1 p-6 overflow-auto">
-          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="lg:hidden mb-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><Menu className="w-5 h-5" /></button>
+        {!isMobile && (
+          <Sidebar activeView={activeView} setActiveView={setActiveView} collapsed={sidebarCollapsed} />
+        )}
+        <main className="flex-1 p-4 md:p-6 overflow-auto">
+          {isMobile && (
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-bold">TimeFlow</span>
+              </div>
+              <button onClick={() => setDark(!dark)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl touch-target">
+                {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
+              </button>
+            </div>
+          )}
           <View />
         </main>
+        {isMobile && <MobileNav activeView={activeView} setActiveView={setActiveView} />}
       </div>
     </ThemeContext.Provider>
   )
