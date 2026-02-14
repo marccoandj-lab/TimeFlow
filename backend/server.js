@@ -4,6 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
+import cron from 'node-cron';
+import admin, { messaging, firestore } from './firebaseAdmin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,6 +45,183 @@ const saveDB = (data) => {
 };
 
 const db = loadDB();
+
+async function sendPushNotification(fcmToken, title, body, data = {}) {
+  if (!fcmToken) return false;
+  
+  try {
+    await messaging.send({
+      token: fcmToken,
+      notification: { title, body },
+      data: { ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          priority: 'high',
+          defaultVibrateTimings: true
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1
+          }
+        }
+      }
+    });
+    console.log(`Push sent: ${title}`);
+    return true;
+  } catch (error) {
+    console.error('Push error:', error.message);
+    return false;
+  }
+}
+
+async function processScheduledNotifications() {
+  const now = new Date();
+  console.log('Checking notifications at:', now.toISOString());
+  
+  try {
+    const usersSnapshot = await firestore.collection('users').get();
+    
+    for (const userDoc of usersSnapshot.docs) {
+      const userData = userDoc.data();
+      const userId = userDoc.id;
+      
+      if (!userData.fcmToken || !userData.notificationEnabled) continue;
+      
+      const notificationsSnapshot = await firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .where('status', '==', 'pending')
+        .where('scheduledFor', '<=', now.toISOString())
+        .get();
+      
+      for (const notifDoc of notificationsSnapshot.docs) {
+        const notif = notifDoc.data();
+        
+        await sendPushNotification(
+          userData.fcmToken,
+          notif.title,
+          notif.body,
+          { type: notif.type, id: notif.taskId || notif.habitId }
+        );
+        
+        await notifDoc.ref.update({ 
+          status: 'sent', 
+          sentAt: now.toISOString() 
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error processing notifications:', error);
+  }
+}
+
+cron.schedule('* * * * *', processScheduledNotifications);
+
+app.post('/api/notifications/register', async (req, res) => {
+  const { userId, fcmToken } = req.body;
+  
+  if (!userId || !fcmToken) {
+    return res.status(400).json({ error: 'userId and fcmToken required' });
+  }
+  
+  try {
+    await firestore.collection('users').doc(userId).set({
+      fcmToken,
+      notificationEnabled: true,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to register token' });
+  }
+});
+
+app.post('/api/notifications/test', async (req, res) => {
+  const { fcmToken, title, body } = req.body;
+  
+  const result = await sendPushNotification(
+    fcmToken, 
+    title || 'Test Notification', 
+    body || 'This is a test notification from TimeFlow!'
+  );
+  
+  res.json({ success: result });
+});
+
+app.post('/api/notifications/schedule', async (req, res) => {
+  const { userId, title, body, scheduledFor, type, relatedId } = req.body;
+  
+  if (!userId || !title || !scheduledFor) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  try {
+    const notifRef = await firestore
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .add({
+        title,
+        body,
+        scheduledFor,
+        type: type || 'general',
+        relatedId: relatedId || null,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+    
+    res.json({ success: true, notificationId: notifRef.id });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to schedule notification' });
+  }
+});
+
+app.delete('/api/notifications/:userId/:notificationId', async (req, res) => {
+  const { userId, notificationId } = req.params;
+  
+  try {
+    await firestore
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .doc(notificationId)
+      .delete();
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete notification' });
+  }
+});
+
+app.get('/api/notifications/:userId', async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    const snapshot = await firestore
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .orderBy('scheduledFor', 'asc')
+      .limit(50)
+      .get();
+    
+    const notifications = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
 
 // Tasks CRUD
 app.get('/api/tasks', (req, res) => {
@@ -94,7 +273,8 @@ app.post('/api/tasks', (req, res) => {
     actualMinutes: 0,
     createdAt: new Date().toISOString(),
     completedAt: null,
-    recurrence: req.body.recurrence || null
+    recurrence: req.body.recurrence || null,
+    reminder: req.body.reminder || true
   };
   db.tasks.push(task);
   saveDB(db);
@@ -194,6 +374,8 @@ app.post('/api/habits', (req, res) => {
     streak: 0,
     lastCompleted: null,
     color: req.body.color || '#10b981',
+    reminder: req.body.reminder || true,
+    reminderTime: req.body.reminderTime || '09:00',
     createdAt: new Date().toISOString()
   };
   db.habits.push(habit);

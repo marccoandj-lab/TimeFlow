@@ -5,9 +5,10 @@ import {
   Plus, Trash2, Edit3, Search, Play, Pause, RotateCcw,
   CheckCircle2, Circle, AlertTriangle, Timer, X, Menu, Sparkles, TrendingUp,
   ChevronLeft, ChevronRight, Info, Zap, Coffee, Brain, Dumbbell, BookOpen, Home,
-  Settings, User, LogOut, ChevronDown
+  Settings, User, LogOut, ChevronDown, Bell, BellOff
 } from 'lucide-react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { NotificationProvider, useNotifications } from './contexts/NotificationContext'
 import AuthPage from './components/AuthPage'
 import ProfilePage from './components/ProfilePage'
 import SettingsPage from './components/SettingsPage'
@@ -484,6 +485,7 @@ function TasksView() {
 }
 
 function TaskForm({ task, categories, onClose }) {
+  const { scheduleTaskNotification, cancelTaskNotifications } = useNotifications()
   const [form, setForm] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -491,13 +493,25 @@ function TaskForm({ task, categories, onClose }) {
     priority: task?.priority || 'medium',
     dueDate: task?.dueDate?.split('T')[0] || '',
     dueTime: task?.dueTime || '',
-    estimatedMinutes: task?.estimatedMinutes || 30
+    estimatedMinutes: task?.estimatedMinutes || 30,
+    reminder: task?.reminder ?? true
   })
 
   const submit = async (e) => {
     e.preventDefault()
-    if (task) await api.tasks.update(task.id, form)
-    else await api.tasks.create(form)
+    if (task) {
+      await api.tasks.update(task.id, form)
+      if (form.reminder && form.dueDate) {
+        await scheduleTaskNotification({ ...form, id: task.id })
+      } else {
+        await cancelTaskNotifications(task.id)
+      }
+    } else {
+      const newTask = await api.tasks.create(form)
+      if (form.reminder && form.dueDate) {
+        await scheduleTaskNotification({ ...form, id: newTask.id })
+      }
+    }
     onClose()
   }
 
@@ -537,6 +551,18 @@ function TaskForm({ task, categories, onClose }) {
       <div>
         <label className="label">Estimated Time (minutes)</label>
         <input type="number" value={form.estimatedMinutes} onChange={(e) => setForm({...form, estimatedMinutes: parseInt(e.target.value) || 30})} className="input" min="5" step="5" />
+      </div>
+      <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
+        <div className="flex items-center gap-3">
+          {form.reminder ? <Bell className="w-5 h-5 text-indigo-500" /> : <BellOff className="w-5 h-5 text-gray-400" />}
+          <div>
+            <p className="text-sm font-medium">Reminder</p>
+            <p className="text-xs text-gray-500">Get notified before due</p>
+          </div>
+        </div>
+        <button type="button" onClick={() => setForm({...form, reminder: !form.reminder})} className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+          <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
       </div>
       <div className="flex gap-3 pt-2">
         <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
@@ -752,6 +778,7 @@ function PomodoroTimer() {
 function HabitsView() {
   const [habits, setHabits] = useState([])
   const [showModal, setShowModal] = useState(false)
+  const { scheduleHabitNotification } = useNotifications()
 
   useEffect(() => { api.habits.list().then(setHabits) }, [])
 
@@ -809,12 +836,16 @@ function HabitsView() {
 }
 
 function HabitForm({ onClose }) {
-  const [form, setForm] = useState({ name: '', color: '#6366f1' })
+  const { scheduleHabitNotification } = useNotifications()
+  const [form, setForm] = useState({ name: '', color: '#6366f1', reminder: true, reminderTime: '09:00' })
   const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1']
 
   const submit = async (e) => {
     e.preventDefault()
-    await api.habits.create(form)
+    const newHabit = await api.habits.create(form)
+    if (form.reminder) {
+      await scheduleHabitNotification({ ...form, id: newHabit.id })
+    }
     onClose()
   }
 
@@ -828,6 +859,24 @@ function HabitForm({ onClose }) {
         <label className="label">Color</label>
         <div className="flex gap-3 flex-wrap">{colors.map(c => <button type="button" key={c} onClick={() => setForm({...form, color: c})} className={`w-10 h-10 rounded-full transition-transform touch-target ${form.color === c ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : ''}`} style={{ backgroundColor: c }} />)}</div>
       </div>
+      <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
+        <div className="flex items-center gap-3">
+          {form.reminder ? <Bell className="w-5 h-5 text-indigo-500" /> : <BellOff className="w-5 h-5 text-gray-400" />}
+          <div>
+            <p className="text-sm font-medium">Daily Reminder</p>
+            <p className="text-xs text-gray-500">Get notified every day</p>
+          </div>
+        </div>
+        <button type="button" onClick={() => setForm({...form, reminder: !form.reminder})} className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+          <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+      </div>
+      {form.reminder && (
+        <div>
+          <label className="label">Reminder Time</label>
+          <input type="time" value={form.reminderTime} onChange={(e) => setForm({...form, reminderTime: e.target.value})} className="input" />
+        </div>
+      )}
       <div className="flex gap-3 pt-2">
         <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
         <button type="submit" className="btn btn-primary flex-1">Create</button>
@@ -988,7 +1037,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
     </AuthProvider>
   )
 }
