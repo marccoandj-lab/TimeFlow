@@ -5,3 +5,5 @@ db.json
 *.log
 .env
 .env.local
+*-firebase-adminsdk*.json
+*.pem
