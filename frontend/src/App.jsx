@@ -4,8 +4,13 @@ import {
   LayoutDashboard, CheckSquare, Calendar, Clock, Target, StickyNote, Moon, Sun,
   Plus, Trash2, Edit3, Search, Play, Pause, RotateCcw,
   CheckCircle2, Circle, AlertTriangle, Timer, X, Menu, Sparkles, TrendingUp,
-  ChevronLeft, ChevronRight, Info, Zap, Coffee, Brain, Dumbbell, BookOpen, Home
+  ChevronLeft, ChevronRight, Info, Zap, Coffee, Brain, Dumbbell, BookOpen, Home,
+  Settings, User, LogOut, ChevronDown
 } from 'lucide-react'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import AuthPage from './components/AuthPage'
+import ProfilePage from './components/ProfilePage'
+import SettingsPage from './components/SettingsPage'
 
 const API_BASE = '/api'
 const ThemeContext = createContext()
@@ -95,13 +100,66 @@ function EmptyState({ icon: Icon, title, description, action }) {
   )
 }
 
+function UserMenu({ onNavigate, onLogout }) {
+  const { currentUser, userData } = useAuth()
+  const [isOpen, setIsOpen] = useState(false)
+  
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+      >
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+          {currentUser?.photoURL ? (
+            <img src={currentUser.photoURL} alt="" className="w-full h-full rounded-lg object-cover" />
+          ) : (
+            <span className="text-white text-sm font-medium">{(userData?.displayName || currentUser?.email || 'U')[0].toUpperCase()}</span>
+          )}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 w-48 card p-1 z-50 shadow-lg">
+            <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 mb-1">
+              <p className="text-sm font-medium truncate">{userData?.displayName || 'User'}</p>
+              <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
+            </div>
+            <button 
+              onClick={() => { setIsOpen(false); onNavigate('profile') }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+            >
+              <User className="w-4 h-4" /> Profile
+            </button>
+            <button 
+              onClick={() => { setIsOpen(false); onNavigate('settings') }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+            >
+              <Settings className="w-4 h-4" /> Settings
+            </button>
+            <button 
+              onClick={() => { setIsOpen(false); onLogout() }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 text-sm"
+            >
+              <LogOut className="w-4 h-4" /> Sign Out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function MobileNav({ activeView, setActiveView }) {
   const navItems = [
     { id: 'dashboard', icon: Home, label: 'Home' },
     { id: 'tasks', icon: CheckSquare, label: 'Tasks' },
     { id: 'timer', icon: Timer, label: 'Focus' },
     { id: 'habits', icon: Target, label: 'Habits' },
-    { id: 'notes', icon: StickyNote, label: 'Notes' },
+    { id: 'profile', icon: User, label: 'Profile' },
   ]
   
   return (
@@ -130,7 +188,7 @@ function MobileNav({ activeView, setActiveView }) {
 }
 
 function Sidebar({ activeView, setActiveView, collapsed }) {
-  const { dark, setDark } = useTheme()
+  const { currentUser, userData, logout } = useAuth()
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', desc: 'Overview & stats' },
     { id: 'tasks', icon: CheckSquare, label: 'Tasks', desc: 'Manage your tasks' },
@@ -173,11 +231,25 @@ function Sidebar({ activeView, setActiveView, collapsed }) {
 
       <div className="p-2 border-t border-gray-100 dark:border-gray-800">
         <button
-          onClick={() => setDark(!dark)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors touch-target"
+          onClick={() => setActiveView('settings')}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors touch-target ${activeView === 'settings' ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
         >
-          {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
-          {!collapsed && <span className="text-sm">{dark ? 'Light Mode' : 'Dark Mode'}</span>}
+          <Settings className={`w-5 h-5 ${activeView === 'settings' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}`} />
+          {!collapsed && <span className="text-sm">Settings</span>}
+        </button>
+        
+        <button
+          onClick={() => setActiveView('profile')}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors touch-target ${activeView === 'profile' ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+        >
+          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+            {currentUser?.photoURL ? (
+              <img src={currentUser.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <span className="text-white text-[10px] font-medium">{(userData?.displayName || 'U')[0].toUpperCase()}</span>
+            )}
+          </div>
+          {!collapsed && <span className="text-sm truncate">{userData?.displayName || 'Profile'}</span>}
         </button>
       </div>
     </aside>
@@ -840,7 +912,8 @@ function NoteForm({ note, onClose }) {
   )
 }
 
-export default function App() {
+function AppContent() {
+  const { currentUser, logout } = useAuth()
   const [dark, setDark] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const [activeView, setActiveView] = useState('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -857,8 +930,29 @@ export default function App() {
     document.documentElement.classList.toggle('dark', dark)
   }, [dark])
 
-  const views = { dashboard: Dashboard, tasks: TasksView, calendar: CalendarView, timer: PomodoroTimer, habits: HabitsView, notes: NotesView }
+  if (!currentUser) {
+    return <AuthPage />
+  }
+
+  const views = { 
+    dashboard: Dashboard, 
+    tasks: TasksView, 
+    calendar: CalendarView, 
+    timer: PomodoroTimer, 
+    habits: HabitsView, 
+    notes: NotesView,
+    profile: ProfilePage,
+    settings: SettingsPage
+  }
   const View = views[activeView] || Dashboard
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (err) {
+      console.error('Failed to logout')
+    }
+  }
 
   return (
     <ThemeContext.Provider value={{ dark, setDark }}>
@@ -875,9 +969,12 @@ export default function App() {
                 </div>
                 <span className="font-bold">TimeFlow</span>
               </div>
-              <button onClick={() => setDark(!dark)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl touch-target">
-                {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setDark(!dark)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl touch-target">
+                  {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
+                </button>
+                <UserMenu onNavigate={setActiveView} onLogout={handleLogout} />
+              </div>
             </div>
           )}
           <View />
@@ -885,5 +982,13 @@ export default function App() {
         {isMobile && <MobileNav activeView={activeView} setActiveView={setActiveView} />}
       </div>
     </ThemeContext.Provider>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
