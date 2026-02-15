@@ -15,6 +15,7 @@ export function NotificationProvider({ children }) {
   const [fcmToken, setFcmToken] = useState(null)
   const [permission, setPermission] = useState('default')
   const [messaging, setMessaging] = useState(null)
+  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -24,19 +25,19 @@ export function NotificationProvider({ children }) {
     const initMessaging = async () => {
       try {
         if (!app) {
-          console.error('Firebase app not initialized')
+          console.error('❌ Firebase app not initialized')
           return
         }
         
         const supported = await isSupported()
         if (!supported) {
-          console.error('Firebase messaging not supported in this browser')
+          console.error('❌ Firebase messaging not supported in this browser')
           return
         }
         
         const msg = getMessaging(app)
         setMessaging(msg)
-        console.log('Firebase messaging initialized')
+        console.log('✅ Firebase messaging initialized')
         
         onMessage(msg, (payload) => {
           console.log('Foreground message:', payload)
@@ -49,23 +50,88 @@ export function NotificationProvider({ children }) {
             })
           }
         })
+        
+        setInitialized(true)
       } catch (error) {
-        console.error('Messaging initialization error:', error)
+        console.error('❌ Messaging initialization error:', error)
       }
     }
     initMessaging()
   }, [])
 
-  useEffect(() => {
-    if (auth?.currentUser && permission === 'granted' && messaging) {
-      console.log('User logged in, permission granted, messaging ready - registering FCM token')
-      registerFCMToken()
+  const registerFCMToken = useCallback(async () => {
+    console.log('registerFCMToken called, messaging:', !!messaging, 'currentUser:', !!auth?.currentUser)
+    
+    if (!messaging) {
+      console.error('❌ Messaging not initialized - cannot register FCM token')
+      return null
     }
-  }, [auth?.currentUser, permission, messaging])
+    
+    if (!auth?.currentUser) {
+      console.error('❌ No current user - cannot register FCM token')
+      return null
+    }
+    
+    try {
+      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
+      if (!vapidKey) {
+        console.error('❌ VAPID key not configured - check VITE_FIREBASE_VAPID_KEY environment variable')
+        return null
+      }
+      
+      console.log('Requesting FCM token...')
+      
+      const token = await getToken(messaging, { vapidKey })
+      
+      if (token) {
+        setFcmToken(token)
+        console.log('✅ FCM token obtained:', token.substring(0, 20) + '...')
+        console.log('User ID:', auth.currentUser.uid)
+        
+        const response = await fetch(`${API_BASE}/notifications/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId: auth.currentUser.uid, 
+            fcmToken: token 
+          })
+        })
+        
+        if (response.ok) {
+          console.log('✅ FCM token registered with backend')
+        } else {
+          console.error('❌ Failed to register FCM token with backend, status:', response.status)
+        }
+        
+        return token
+      } else {
+        console.error('❌ No FCM token received from Firebase')
+        return null
+      }
+    } catch (e) {
+      console.error('❌ FCM token registration error:', e.code || e.name, e.message)
+      return null
+    }
+  }, [messaging])
+
+  useEffect(() => {
+    if (initialized && auth?.currentUser && messaging) {
+      console.log('Attempting to register FCM token...')
+      console.log('Permission:', Notification.permission)
+      
+      if (Notification.permission === 'granted') {
+        registerFCMToken()
+      } else if (Notification.permission === 'default') {
+        console.log('Notification permission not yet requested')
+      } else {
+        console.log('Notification permission denied')
+      }
+    }
+  }, [initialized, auth?.currentUser, messaging, registerFCMToken])
 
   useEffect(() => {
     if (fcmToken && auth?.currentUser) {
-      console.log('FCM token available:', fcmToken.substring(0, 20) + '...')
+      console.log('✅ FCM token available:', fcmToken.substring(0, 20) + '...')
     }
   }, [fcmToken])
 
