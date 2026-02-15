@@ -607,7 +607,7 @@ function TasksView() {
 }
 
 function TaskForm({ task, categories, onClose }) {
-  const { scheduleTaskNotification, cancelTaskNotifications } = useNotifications()
+  const { scheduleTaskNotification, cancelTaskNotifications, permission, requestPermission } = useNotifications()
   const [form, setForm] = useState({
     title: task?.title || '',
     description: task?.description || '',
@@ -621,6 +621,14 @@ function TaskForm({ task, categories, onClose }) {
 
   const submit = async (e) => {
     e.preventDefault()
+    
+    if (form.reminder && form.dueDate && permission !== 'granted') {
+      const granted = await requestPermission()
+      if (!granted) {
+        alert('Please allow notifications to receive reminders')
+      }
+    }
+    
     if (task) {
       await api.tasks.update(task.id, form)
       if (form.reminder && form.dueDate) {
@@ -984,12 +992,17 @@ function HabitsView() {
 }
 
 function HabitForm({ onClose }) {
-  const { scheduleHabitNotification } = useNotifications()
+  const { scheduleHabitNotification, permission, requestPermission } = useNotifications()
   const [form, setForm] = useState({ name: '', color: '#6366f1', reminder: true, reminderTime: '09:00' })
   const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1']
 
   const submit = async (e) => {
     e.preventDefault()
+    
+    if (form.reminder && permission !== 'granted') {
+      await requestPermission()
+    }
+    
     const newHabit = await api.habits.create(form)
     if (form.reminder) {
       await scheduleHabitNotification({ ...form, id: newHabit.id })
