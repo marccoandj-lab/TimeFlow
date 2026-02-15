@@ -23,24 +23,34 @@ export function NotificationProvider({ children }) {
     
     const initMessaging = async () => {
       try {
-        if (app && await isSupported()) {
-          const msg = getMessaging(app)
-          setMessaging(msg)
-          
-          onMessage(msg, (payload) => {
-            console.log('Foreground message:', payload)
-            if (Notification.permission === 'granted' && payload.notification) {
-              new Notification(payload.notification.title, {
-                body: payload.notification.body,
-                icon: '/icon-192x192.png',
-                tag: payload.data?.tag || 'timeflow',
-                requireInteraction: true
-              })
-            }
-          })
+        if (!app) {
+          console.error('Firebase app not initialized')
+          return
         }
+        
+        const supported = await isSupported()
+        if (!supported) {
+          console.error('Firebase messaging not supported in this browser')
+          return
+        }
+        
+        const msg = getMessaging(app)
+        setMessaging(msg)
+        console.log('Firebase messaging initialized')
+        
+        onMessage(msg, (payload) => {
+          console.log('Foreground message:', payload)
+          if (Notification.permission === 'granted' && payload.notification) {
+            new Notification(payload.notification.title, {
+              body: payload.notification.body,
+              icon: '/icon-192x192.png',
+              tag: payload.data?.tag || 'timeflow',
+              requireInteraction: true
+            })
+          }
+        })
       } catch (error) {
-        console.log('Messaging not supported:', error)
+        console.error('Messaging initialization error:', error)
       }
     }
     initMessaging()
@@ -48,27 +58,45 @@ export function NotificationProvider({ children }) {
 
   useEffect(() => {
     if (auth?.currentUser && permission === 'granted' && messaging) {
+      console.log('User logged in, permission granted, messaging ready - registering FCM token')
       registerFCMToken()
     }
   }, [auth?.currentUser, permission, messaging])
 
   useEffect(() => {
     if (fcmToken && auth?.currentUser) {
-      console.log('FCM token available, ensuring registered with backend')
+      console.log('FCM token available:', fcmToken.substring(0, 20) + '...')
     }
   }, [fcmToken])
 
   const registerFCMToken = async () => {
-    if (!messaging || !auth?.currentUser) return
+    if (!messaging) {
+      console.error('❌ Messaging not initialized - cannot register FCM token')
+      return null
+    }
+    
+    if (!auth?.currentUser) {
+      console.error('❌ No current user - cannot register FCM token')
+      return null
+    }
     
     try {
-      const token = await getToken(messaging, {
-        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
-      })
+      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
+      if (!vapidKey) {
+        console.error('❌ VAPID key not configured - check VITE_FIREBASE_VAPID_KEY environment variable')
+        return null
+      }
+      
+      console.log('Requesting FCM token with VAPID key:', vapidKey.substring(0, 20) + '...')
+      
+      const token = await getToken(messaging, { vapidKey })
       
       if (token) {
         setFcmToken(token)
-        await fetch(`${API_BASE}/notifications/register`, {
+        console.log('✅ FCM token obtained:', token.substring(0, 20) + '...')
+        console.log('User ID:', auth.currentUser.uid)
+        
+        const response = await fetch(`${API_BASE}/notifications/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -76,12 +104,21 @@ export function NotificationProvider({ children }) {
             fcmToken: token 
           })
         })
-        console.log('FCM token registered:', token.substring(0, 20) + '...')
-        console.log('User ID:', auth.currentUser.uid)
-        console.log('Check status at: /api/notifications/status/' + auth.currentUser.uid)
+        
+        if (response.ok) {
+          console.log('✅ FCM token registered with backend')
+        } else {
+          console.error('❌ Failed to register FCM token with backend, status:', response.status)
+        }
+        
+        return token
+      } else {
+        console.error('❌ No FCM token received from Firebase')
+        return null
       }
     } catch (e) {
-      console.error('FCM token registration error:', e)
+      console.error('❌ FCM token registration error:', e.code || e.name, e.message)
+      return null
     }
   }
 
@@ -124,8 +161,11 @@ export function NotificationProvider({ children }) {
     }
 
     if (!fcmToken) {
-      console.warn('No FCM token - notifications may not work when app is closed')
-      await registerFCMToken()
+      console.warn('No FCM token - attempting to register...')
+      const token = await registerFCMToken()
+      if (!token) {
+        console.error('Failed to get FCM token - push notifications will not work when app is closed')
+      }
     }
 
     const dueDate = new Date(task.dueDate + 'T' + (task.dueTime || '09:00'))
