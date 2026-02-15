@@ -52,20 +52,15 @@ async function sendPushNotification(fcmToken, title, body, data = {}) {
   try {
     const messageId = await messaging.send({
       token: fcmToken,
-      notification: { title, body },
       data: { 
+        title,
+        body,
         ...data, 
         click_action: 'FLUTTER_NOTIFICATION_CLICK',
         url: data.url || '/'
       },
       android: {
-        priority: 'high',
-        notification: {
-          sound: 'default',
-          priority: 'high',
-          defaultVibrateTimings: true,
-          channelId: 'timeflow-notifications'
-        }
+        priority: 'high'
       },
       apns: {
         payload: {
@@ -77,14 +72,8 @@ async function sendPushNotification(fcmToken, title, body, data = {}) {
         }
       },
       webpush: {
-        notification: {
-          icon: '/icon-192x192.png',
-          badge: '/icon-192x192.png',
-          requireInteraction: true,
-          vibrate: [200, 100, 200]
-        },
-        fcmOptions: {
-          link: data.url || '/'
+        headers: {
+          Urgency: 'high'
         }
       }
     });

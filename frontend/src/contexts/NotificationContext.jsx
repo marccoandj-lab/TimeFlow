@@ -43,8 +43,10 @@ export function NotificationProvider({ children }) {
         
         onMessage(msg, (payload) => {
           console.log('📨 Foreground FCM message:', payload)
-          showNotification(payload.notification?.title || 'TimeFlow', {
-            body: payload.notification?.body || '',
+          const title = payload.data?.title || payload.notification?.title || 'TimeFlow'
+          const body = payload.data?.body || payload.notification?.body || ''
+          showNotification(title, {
+            body,
             tag: payload.data?.tag || 'timeflow-foreground'
           })
         })

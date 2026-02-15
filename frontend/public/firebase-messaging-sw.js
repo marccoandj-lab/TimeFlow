@@ -1,7 +1,7 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js')
 
-const CACHE_NAME = 'timeflow-v3'
+const CACHE_NAME = 'timeflow-v4'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -93,9 +93,11 @@ self.addEventListener('fetch', (event) => {
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Background FCM message:', payload)
   
-  const notificationTitle = payload.notification?.title || 'TimeFlow'
+  const notificationTitle = payload.data?.title || payload.notification?.title || 'TimeFlow'
+  const notificationBody = payload.data?.body || payload.notification?.body || 'You have a reminder!'
+  
   const notificationOptions = {
-    body: payload.notification?.body || 'You have a reminder!',
+    body: notificationBody,
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
     tag: payload.data?.tag || 'timeflow-bg',
@@ -106,41 +108,6 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(notificationTitle, notificationOptions)
   console.log('[SW] Notification shown from background message')
-})
-
-self.addEventListener('push', (event) => {
-  console.log('[SW] Push event received')
-  
-  if (!event.data) {
-    console.log('[SW] Push has no data')
-    return
-  }
-  
-  let data
-  try {
-    data = event.data.json()
-    console.log('[SW] Push data:', JSON.stringify(data))
-  } catch (e) {
-    console.log('[SW] Push data parse error:', e)
-    data = { notification: { title: 'TimeFlow', body: event.data.text() } }
-  }
-  
-  const notificationTitle = data.notification?.title || 'TimeFlow'
-  const notificationOptions = {
-    body: data.notification?.body || '',
-    icon: '/icon-192x192.png',
-    badge: '/icon-192x192.png',
-    tag: data.data?.tag || 'timeflow-push',
-    data: data.data || {},
-    requireInteraction: true,
-    vibrate: [200, 100, 200]
-  }
-  
-  event.waitUntil(
-    self.registration.showNotification(notificationTitle, notificationOptions)
-      .then(() => console.log('[SW] Push notification shown'))
-      .catch(e => console.error('[SW] Push notification error:', e))
-  )
 })
 
 self.addEventListener('notificationclick', (event) => {
