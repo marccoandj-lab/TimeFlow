@@ -655,15 +655,23 @@ app.get('/api/stats', (req, res) => {
 
 // Serve frontend in production
 const frontendPath = path.join(__dirname, '..', 'frontend', 'dist');
+console.log('🔍 Frontend path:', frontendPath);
+console.log('🔍 Frontend dist exists:', fs.existsSync(frontendPath));
+
 if (fs.existsSync(frontendPath)) {
-  // Log what's in the dist folder for debugging
   const distFiles = fs.readdirSync(frontendPath);
-  console.log('Dist folder contents:', distFiles);
+  console.log('📁 Dist contents:', distFiles);
   
+  const swFile = path.join(frontendPath, 'firebase-messaging-sw.js');
+  console.log('🔍 SW file path:', swFile);
+  console.log('🔍 SW file exists:', fs.existsSync(swFile));
+}
+
+if (fs.existsSync(frontendPath)) {
   // Explicit route for service worker with correct headers
   app.get('/firebase-messaging-sw.js', (req, res) => {
     const swPath = path.join(frontendPath, 'firebase-messaging-sw.js');
-    console.log('Request for SW, path:', swPath, 'exists:', fs.existsSync(swPath));
+    console.log('📥 SW request, path:', swPath, 'exists:', fs.existsSync(swPath));
     
     if (fs.existsSync(swPath)) {
       const content = fs.readFileSync(swPath, 'utf8');
@@ -672,14 +680,14 @@ if (fs.existsSync(frontendPath)) {
       res.setHeader('Cache-Control', 'no-cache');
       res.send(content);
     } else {
-      console.error('Service worker file not found');
-      res.status(404).send('// Service worker not found');
+      console.error('❌ SW not found at:', swPath);
+      res.status(404).send('// SW not found');
     }
   });
   
   app.use(express.static(frontendPath, {
-    setHeaders: (res, path) => {
-      if (path.endsWith('.js')) {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.js')) {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       }
     }
@@ -689,12 +697,13 @@ if (fs.existsSync(frontendPath)) {
     if (req.path.startsWith('/api')) {
       return
     }
-    // Don't serve index.html for JS files
     if (req.path.endsWith('.js') || req.path.endsWith('.mjs')) {
       return res.status(404).send('Not found')
     }
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
+} else {
+  console.log('⚠️ No frontend dist folder - running in API-only mode');
 }
 
 app.listen(PORT, '0.0.0.0', () => {
