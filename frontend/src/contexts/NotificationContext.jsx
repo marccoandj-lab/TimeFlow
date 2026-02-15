@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { doc, setDoc, collection, addDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore'
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging'
-import { auth, db, app } from '../firebase'
+import { auth, app } from '../firebase'
 
 const NotificationContext = createContext()
 
@@ -15,7 +14,6 @@ const API_BASE = '/api'
 export function NotificationProvider({ children }) {
   const [fcmToken, setFcmToken] = useState(null)
   const [permission, setPermission] = useState('default')
-  const [scheduledNotifications, setScheduledNotifications] = useState([])
   const [messaging, setMessaging] = useState(null)
 
   useEffect(() => {
@@ -31,10 +29,12 @@ export function NotificationProvider({ children }) {
           
           onMessage(msg, (payload) => {
             console.log('Foreground message:', payload)
-            if (Notification.permission === 'granted') {
+            if (Notification.permission === 'granted' && payload.notification) {
               new Notification(payload.notification.title, {
                 body: payload.notification.body,
-                icon: '/icon-192x192.png'
+                icon: '/icon-192x192.png',
+                tag: payload.data?.tag || 'timeflow',
+                requireInteraction: true
               })
             }
           })
@@ -45,6 +45,37 @@ export function NotificationProvider({ children }) {
     }
     initMessaging()
   }, [])
+
+  useEffect(() => {
+    if (auth?.currentUser && permission === 'granted' && messaging) {
+      registerFCMToken()
+    }
+  }, [auth?.currentUser, permission, messaging])
+
+  const registerFCMToken = async () => {
+    if (!messaging || !auth?.currentUser) return
+    
+    try {
+      const token = await getToken(messaging, {
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+      })
+      
+      if (token) {
+        setFcmToken(token)
+        await fetch(`${API_BASE}/notifications/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId: auth.currentUser.uid, 
+            fcmToken: token 
+          })
+        })
+        console.log('FCM token registered:', token.substring(0, 20) + '...')
+      }
+    } catch (e) {
+      console.error('FCM token registration error:', e)
+    }
+  }
 
   const requestPermission = async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -61,23 +92,7 @@ export function NotificationProvider({ children }) {
           icon: '/icon-192x192.png'
         })
         
-        if (messaging && auth?.currentUser) {
-          try {
-            const token = await getToken(messaging, {
-              vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
-            })
-            if (token) {
-              setFcmToken(token)
-              await fetch(`${API_BASE}/notifications/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: auth.currentUser.uid, fcmToken: token })
-              })
-            }
-          } catch (e) {
-            console.log('FCM token error:', e)
-          }
-        }
+        await registerFCMToken()
       }
       return result === 'granted'
     } catch (error) {
@@ -87,15 +102,25 @@ export function NotificationProvider({ children }) {
   }
 
   const scheduleTaskNotification = async (task) => {
-    if (!task.dueDate) return null
+    if (!task.dueDate) {
+      console.log('No due date for task')
+      return null
+    }
 
     if (Notification.permission !== 'granted') {
       const granted = await requestPermission()
-      if (!granted) return null
+      if (!granted) {
+        console.log('Notification permission not granted')
+        return null
+      }
     }
 
-    const dueDate = new Date(task.dueDate + (task.dueTime ? `T${task.dueTime}` : 'T09:00'))
+    const dueDate = new Date(task.dueDate + 'T' + (task.dueTime || '09:00'))
     const now = new Date()
+
+    console.log('Scheduling notifications for task:', task.title)
+    console.log('Due date:', dueDate.toISOString())
+    console.log('Now:', now.toISOString())
 
     const notificationTimes = [
       { minutes: 60, label: '1 hour before' },
@@ -109,13 +134,20 @@ export function NotificationProvider({ children }) {
 
     for (const { minutes, label } of notificationTimes) {
       const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
-      if (notifyTime <= now) continue
+      
+      if (notifyTime <= now) {
+        console.log(`Skipping ${label} - already passed`)
+        continue
+      }
 
       const notificationId = `${task.id}-${minutes}`
       const delay = notifyTime.getTime() - now.getTime()
 
+      console.log(`Scheduling ${label} notification at ${notifyTime.toLocaleTimeString()} (in ${Math.round(delay/1000)}s)`)
+
       if (delay < 2147483647) {
         const timeoutId = setTimeout(() => {
+          console.log(`Triggering local notification: ${task.title} - ${label}`)
           if (Notification.permission === 'granted') {
             try {
               new Notification(`⏰ ${task.title}`, {
@@ -125,7 +157,7 @@ export function NotificationProvider({ children }) {
                 requireInteraction: true
               })
             } catch (e) {
-              console.error('Notification error:', e)
+              console.error('Local notification error:', e)
             }
           }
         }, delay)
@@ -140,7 +172,7 @@ export function NotificationProvider({ children }) {
           const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
           if (notifyTime <= now) continue
           
-          await fetch(`${API_BASE}/notifications/schedule`, {
+          const response = await fetch(`${API_BASE}/notifications/schedule`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -152,6 +184,10 @@ export function NotificationProvider({ children }) {
               relatedId: task.id
             })
           })
+          
+          if (response.ok) {
+            console.log(`Scheduled backend notification for ${label}`)
+          }
         }
       } catch (error) {
         console.error('Error scheduling via backend:', error)
@@ -179,13 +215,16 @@ export function NotificationProvider({ children }) {
     const delay = notifyTime.getTime() - now.getTime()
     const notificationId = `habit-${habit.id}`
 
+    console.log(`Scheduling habit notification for ${habit.name} at ${notifyTime.toLocaleTimeString()}`)
+
     if (delay < 2147483647) {
       const timeoutId = setTimeout(() => {
         if (Notification.permission === 'granted') {
           new Notification(`🎯 ${habit.name}`, {
             body: "Time to complete your habit! Keep your streak going! 🔥",
             icon: '/icon-192x192.png',
-            tag: notificationId
+            tag: notificationId,
+            requireInteraction: true
           })
         }
       }, delay)
@@ -215,12 +254,10 @@ export function NotificationProvider({ children }) {
   }
 
   const cancelNotification = async (notificationId) => {
-    if (!auth?.currentUser || !db) return
-
-    try {
-      await deleteDoc(doc(db, 'users', auth.currentUser.uid, 'notifications', notificationId))
-    } catch (error) {
-      console.error('Error canceling notification:', error)
+    const timeoutId = scheduledNotificationsLocal.get(notificationId)
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+      scheduledNotificationsLocal.delete(notificationId)
     }
   }
 
@@ -235,15 +272,11 @@ export function NotificationProvider({ children }) {
       }
     }
 
-    if (auth?.currentUser && db) {
+    if (auth?.currentUser) {
       try {
-        const q = query(
-          collection(db, 'users', auth.currentUser.uid, 'notifications'),
-          where('taskId', '==', taskId)
-        )
-        const snapshot = await getDocs(q)
-        const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref))
-        await Promise.all(deletePromises)
+        await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/task/${taskId}`, {
+          method: 'DELETE'
+        })
       } catch (error) {
         console.error('Error canceling task notifications:', error)
       }
@@ -252,7 +285,7 @@ export function NotificationProvider({ children }) {
 
   const value = {
     permission,
-    scheduledNotifications,
+    fcmToken,
     requestPermission,
     scheduleTaskNotification,
     scheduleHabitNotification,

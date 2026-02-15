@@ -86,14 +86,20 @@ async function processScheduledNotifications() {
     const usersSnapshot = await firestore.collection('users').get();
     
     if (usersSnapshot.empty) {
+      console.log('No users found');
       return;
     }
+    
+    console.log(`Processing notifications at ${now.toISOString()}`);
     
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
       const userId = userDoc.id;
       
-      if (!userData.fcmToken || !userData.notificationEnabled) continue;
+      if (!userData.fcmToken) {
+        console.log(`User ${userId} has no FCM token`);
+        continue;
+      }
       
       try {
         const notificationsSnapshot = await firestore
@@ -104,29 +110,40 @@ async function processScheduledNotifications() {
           .where('scheduledFor', '<=', now.toISOString())
           .get();
         
+        if (notificationsSnapshot.empty) {
+          continue;
+        }
+        
+        console.log(`Found ${notificationsSnapshot.size} pending notifications for user ${userId}`);
+        
         for (const notifDoc of notificationsSnapshot.docs) {
           const notif = notifDoc.data();
           
-          await sendPushNotification(
+          console.log(`Sending notification: ${notif.title} - ${notif.body}`);
+          
+          const sent = await sendPushNotification(
             userData.fcmToken,
             notif.title,
             notif.body,
-            { type: notif.type, id: notif.taskId || notif.habitId }
+            { type: notif.type, id: notif.relatedId || '' }
           );
           
-          await notifDoc.ref.update({ 
-            status: 'sent', 
-            sentAt: now.toISOString() 
-          });
+          if (sent) {
+            await notifDoc.ref.update({ 
+              status: 'sent', 
+              sentAt: now.toISOString() 
+            });
+            console.log(`Notification sent and marked as sent`);
+          } else {
+            console.log(`Failed to send notification`);
+          }
         }
       } catch (userError) {
         console.error(`Error for user ${userId}:`, userError.message);
       }
     }
   } catch (error) {
-    if (error.code !== 5) {
-      console.error('Error processing notifications:', error.message);
-    }
+    console.error('Error processing notifications:', error.message);
   }
 }
 
@@ -206,6 +223,27 @@ app.delete('/api/notifications/:userId/:notificationId', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete notification' });
+  }
+});
+
+app.delete('/api/notifications/:userId/task/:taskId', async (req, res) => {
+  const { userId, taskId } = req.params;
+  
+  try {
+    const snapshot = await firestore
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .where('relatedId', '==', taskId)
+      .where('status', '==', 'pending')
+      .get();
+    
+    const deletePromises = snapshot.docs.map(doc => doc.ref.delete());
+    await Promise.all(deletePromises);
+    
+    res.json({ success: true, deleted: snapshot.size });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete task notifications' });
   }
 });
 
