@@ -656,24 +656,42 @@ app.get('/api/stats', (req, res) => {
 // Serve frontend in production
 const frontendPath = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendPath)) {
+  // Log what's in the dist folder for debugging
+  const distFiles = fs.readdirSync(frontendPath);
+  console.log('Dist folder contents:', distFiles);
+  
   // Explicit route for service worker with correct headers
   app.get('/firebase-messaging-sw.js', (req, res) => {
     const swPath = path.join(frontendPath, 'firebase-messaging-sw.js');
+    console.log('Request for SW, path:', swPath, 'exists:', fs.existsSync(swPath));
+    
     if (fs.existsSync(swPath)) {
-      res.setHeader('Content-Type', 'application/javascript');
+      const content = fs.readFileSync(swPath, 'utf8');
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       res.setHeader('Service-Worker-Allowed', '/');
-      res.sendFile(swPath);
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(content);
     } else {
-      console.error('Service worker file not found:', swPath);
-      res.status(404).send('Service worker not found');
+      console.error('Service worker file not found');
+      res.status(404).send('// Service worker not found');
     }
   });
   
-  app.use(express.static(frontendPath));
+  app.use(express.static(frontendPath, {
+    setHeaders: (res, path) => {
+      if (path.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      }
+    }
+  }));
   
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api')) {
       return
+    }
+    // Don't serve index.html for JS files
+    if (req.path.endsWith('.js') || req.path.endsWith('.mjs')) {
+      return res.status(404).send('Not found')
     }
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
