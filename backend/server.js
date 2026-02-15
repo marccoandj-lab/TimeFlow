@@ -668,37 +668,36 @@ if (fs.existsSync(frontendPath)) {
 }
 
 if (fs.existsSync(frontendPath)) {
-  // Explicit route for service worker with correct headers
-  app.get('/firebase-messaging-sw.js', (req, res) => {
+  // Service worker MUST be served before any other middleware
+  app.get('/firebase-messaging-sw.js', (req, res, next) => {
     const swPath = path.join(frontendPath, 'firebase-messaging-sw.js');
-    console.log('📥 SW request, path:', swPath, 'exists:', fs.existsSync(swPath));
+    console.log('📥 SW request received');
     
-    if (fs.existsSync(swPath)) {
-      const content = fs.readFileSync(swPath, 'utf8');
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      res.setHeader('Service-Worker-Allowed', '/');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.send(content);
-    } else {
-      console.error('❌ SW not found at:', swPath);
-      res.status(404).send('// SW not found');
+    if (!fs.existsSync(swPath)) {
+      console.error('❌ SW not found');
+      return res.status(404).send('// SW not found');
     }
+    
+    const content = fs.readFileSync(swPath, 'utf8');
+    console.log('📤 Sending SW, length:', content.length);
+    res.type('application/javascript');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.send(content);
   });
   
-  app.use(express.static(frontendPath, {
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.js')) {
-        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      }
-    }
-  }));
+  // Static files
+  app.use(express.static(frontendPath));
   
+  // SPA fallback - ONLY for non-API, non-file routes
   app.get('*', (req, res) => {
+    // Skip API routes
     if (req.path.startsWith('/api')) {
       return
     }
-    if (req.path.endsWith('.js') || req.path.endsWith('.mjs')) {
-      return res.status(404).send('Not found')
+    // Skip static file requests
+    if (req.path.match(/\.\w+$/)) {
+      return res.status(404).send('File not found')
     }
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
