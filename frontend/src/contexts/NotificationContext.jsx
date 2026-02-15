@@ -253,20 +253,7 @@ export function NotificationProvider({ children }) {
 
       console.log(`⏰ Scheduling ${label} notification in ${Math.round(delay/1000)}s`)
 
-      // Local notification (works when app is open)
-      if (delay < 2147483647) {
-        const timeoutId = setTimeout(() => {
-          console.log(`🔔 TRIGGERING: ${task.title} - ${label}`)
-          showNotification(`⏰ ${task.title}`, {
-            body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
-            tag: notificationId
-          })
-        }, delay)
-        scheduledNotificationsLocal.set(notificationId, timeoutId)
-        console.log(`✅ Local notification scheduled: ${notificationId}`)
-      }
-
-      // Backend FCM notification (works when app is closed)
+      // Use only FCM backend notifications (works in foreground and background)
       if (auth?.currentUser && currentToken) {
         try {
           const response = await fetch(`${API_BASE}/notifications/schedule`, {
@@ -278,7 +265,8 @@ export function NotificationProvider({ children }) {
               body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
               scheduledFor: notifyTime.toISOString(),
               type: 'task',
-              relatedId: task.id
+              relatedId: task.id,
+              tag: notificationId
             })
           })
           
@@ -291,7 +279,18 @@ export function NotificationProvider({ children }) {
           console.error(`❌ FCM schedule error for ${label}:`, e)
         }
       } else {
-        console.warn(`⚠️ No FCM token - backend notification skipped for ${label}`)
+        // Fallback to local notification only if no FCM token
+        console.log(`⚠️ No FCM token - using local notification for ${label}`)
+        if (delay < 2147483647) {
+          const timeoutId = setTimeout(() => {
+            console.log(`🔔 TRIGGERING LOCAL: ${task.title} - ${label}`)
+            showNotification(`⏰ ${task.title}`, {
+              body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
+              tag: notificationId
+            })
+          }, delay)
+          scheduledNotificationsLocal.set(notificationId, timeoutId)
+        }
       }
       
       scheduled.push({ id: notificationId, minutes })
@@ -306,6 +305,55 @@ export function NotificationProvider({ children }) {
       const granted = await requestPermission()
       if (!granted) return null
     }
+
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    const reminderTime = habit.reminderTime || '09:00'
+    const notifyTime = new Date(`${today}T${reminderTime}`)
+
+    if (notifyTime <= now) {
+      notifyTime.setDate(notifyTime.getDate() + 1)
+    }
+
+    const delay = notifyTime.getTime() - now.getTime()
+    const notificationId = `habit-${habit.id}`
+
+    console.log(`🔔 Scheduling habit: ${habit.name} in ${Math.round(delay/1000)}s`)
+
+    if (auth?.currentUser && fcmToken) {
+      try {
+        await fetch(`${API_BASE}/notifications/schedule`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: auth.currentUser.uid,
+            title: `🎯 ${habit.name}`,
+            body: "Time to complete your habit! Keep your streak going! 🔥",
+            scheduledFor: notifyTime.toISOString(),
+            type: 'habit',
+            relatedId: habit.id,
+            tag: notificationId
+          })
+        })
+        console.log(`✅ FCM notification scheduled for habit ${habit.name}`)
+      } catch (error) {
+        console.error('Error scheduling habit notification:', error)
+      }
+    } else {
+      // Fallback to local notification
+      if (delay < 2147483647) {
+        const timeoutId = setTimeout(() => {
+          showNotification(`🎯 ${habit.name}`, {
+            body: "Time to complete your habit! Keep your streak going! 🔥",
+            tag: notificationId
+          })
+        }, delay)
+        scheduledNotificationsLocal.set(notificationId, timeoutId)
+      }
+    }
+
+    return { id: notificationId }
+  }
 
     const now = new Date()
     const today = now.toISOString().split('T')[0]

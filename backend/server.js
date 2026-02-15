@@ -162,7 +162,7 @@ async function processScheduledNotifications() {
             userData.fcmToken,
             notif.title,
             notif.body,
-            { type: notif.type, id: notif.relatedId || '', tag: notifDoc.id }
+            { type: notif.type, id: notif.relatedId || '', tag: notif.tag || notifDoc.id }
           );
           
           if (sent) {
@@ -283,7 +283,7 @@ app.post('/api/notifications/test-user/:userId', async (req, res) => {
 });
 
 app.post('/api/notifications/schedule', async (req, res) => {
-  const { userId, title, body, scheduledFor, type, relatedId } = req.body;
+  const { userId, title, body, scheduledFor, type, relatedId, tag } = req.body;
   
   if (!userId || !title || !scheduledFor) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -300,12 +300,15 @@ app.post('/api/notifications/schedule', async (req, res) => {
         scheduledFor,
         type: type || 'general',
         relatedId: relatedId || null,
+        tag: tag || null,
         status: 'pending',
         createdAt: new Date().toISOString()
       });
     
+    console.log(`📅 Scheduled notification: "${title}" for ${scheduledFor}`);
     res.json({ success: true, notificationId: notifRef.id });
   } catch (error) {
+    console.error('❌ Failed to schedule notification:', error);
     res.status(500).json({ error: 'Failed to schedule notification' });
   }
 });
