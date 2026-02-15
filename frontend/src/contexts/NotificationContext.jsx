@@ -224,6 +224,17 @@ export function NotificationProvider({ children }) {
       currentToken = await registerFCMToken()
     }
 
+    if (auth?.currentUser) {
+      try {
+        await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/task/${task.id}`, {
+          method: 'DELETE'
+        })
+        console.log('🧹 Cleared existing notifications for task')
+      } catch (e) {
+        console.error('❌ Failed to clear existing notifications:', e)
+      }
+    }
+
     const dueDate = new Date(task.dueDate + 'T' + (task.dueTime || '09:00'))
     const now = new Date()
 
@@ -253,7 +264,6 @@ export function NotificationProvider({ children }) {
 
       console.log(`⏰ Scheduling ${label} notification in ${Math.round(delay/1000)}s`)
 
-      // Use only FCM backend notifications (works in foreground and background)
       if (auth?.currentUser && currentToken) {
         try {
           const response = await fetch(`${API_BASE}/notifications/schedule`, {
@@ -279,7 +289,6 @@ export function NotificationProvider({ children }) {
           console.error(`❌ FCM schedule error for ${label}:`, e)
         }
       } else {
-        // Fallback to local notification only if no FCM token
         console.log(`⚠️ No FCM token - using local notification for ${label}`)
         if (delay < 2147483647) {
           const timeoutId = setTimeout(() => {
@@ -304,6 +313,17 @@ export function NotificationProvider({ children }) {
     if (Notification.permission !== 'granted') {
       const granted = await requestPermission()
       if (!granted) return null
+    }
+
+    if (auth?.currentUser) {
+      try {
+        await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/habit/${habit.id}`, {
+          method: 'DELETE'
+        })
+        console.log('🧹 Cleared existing notifications for habit')
+      } catch (e) {
+        console.error('❌ Failed to clear existing habit notifications:', e)
+      }
     }
 
     const now = new Date()
@@ -340,7 +360,6 @@ export function NotificationProvider({ children }) {
         console.error('Error scheduling habit notification:', error)
       }
     } else {
-      // Fallback to local notification
       if (delay < 2147483647) {
         const timeoutId = setTimeout(() => {
           showNotification(`🎯 ${habit.name}`, {

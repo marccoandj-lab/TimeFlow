@@ -144,29 +144,69 @@ async function processScheduledNotifications() {
         
         const nowTime = now.getTime();
         
+        const dueNotifications = [];
+        const futureNotifications = [];
+        
         for (const notifDoc of notificationsSnapshot.docs) {
           const notif = notifDoc.data();
-          processedCount++;
-          
           const scheduledTime = new Date(notif.scheduledFor).getTime();
           const diff = Math.round((scheduledTime - nowTime) / 1000);
           
           if (scheduledTime > nowTime) {
             console.log(`  ⏳ "${notif.title}" scheduled in ${diff}s (${notif.scheduledFor})`);
-            continue;
+            futureNotifications.push({ doc: notifDoc, data: notif });
+          } else {
+            dueNotifications.push({ doc: notifDoc, data: notif, scheduledTime });
           }
+        }
+        
+        const taskNotifications = new Map();
+        const habitNotifications = new Map();
+        const otherNotifications = [];
+        
+        for (const item of dueNotifications) {
+          const { doc, data, scheduledTime } = item;
+          const key = data.relatedId || 'general';
           
+          if (data.type === 'task' && data.relatedId) {
+            if (!taskNotifications.has(key) || taskNotifications.get(key).scheduledTime < scheduledTime) {
+              taskNotifications.set(key, item);
+            }
+          } else if (data.type === 'habit' && data.relatedId) {
+            if (!habitNotifications.has(key) || habitNotifications.get(key).scheduledTime < scheduledTime) {
+              habitNotifications.set(key, item);
+            }
+          } else {
+            otherNotifications.push(item);
+          }
+        }
+        
+        const toSend = [
+          ...taskNotifications.values(),
+          ...habitNotifications.values(),
+          ...otherNotifications
+        ];
+        
+        const toMarkSent = dueNotifications.filter(item => !toSend.includes(item));
+        
+        for (const { doc } of toMarkSent) {
+          await doc.ref.update({ status: 'superseded', supersededAt: now.toISOString() });
+          console.log(`  🔄 Marked as superseded: "${doc.data().title}"`);
+        }
+        
+        for (const { doc, data: notif } of toSend) {
+          processedCount++;
           console.log(`  🔔 SENDING: "${notif.title}" - ${notif.body}`);
           
           const sent = await sendPushNotification(
             userData.fcmToken,
             notif.title,
             notif.body,
-            { type: notif.type, id: notif.relatedId || '', tag: notif.tag || notifDoc.id }
+            { type: notif.type, id: notif.relatedId || '', tag: notif.tag || doc.id }
           );
           
           if (sent) {
-            await notifDoc.ref.update({ 
+            await doc.ref.update({ 
               status: 'sent', 
               sentAt: now.toISOString() 
             });
@@ -339,6 +379,7 @@ app.delete('/api/notifications/:userId/task/:taskId', async (req, res) => {
       .doc(userId)
       .collection('notifications')
       .where('relatedId', '==', taskId)
+      .where('type', '==', 'task')
       .where('status', '==', 'pending')
       .get();
     
@@ -348,6 +389,28 @@ app.delete('/api/notifications/:userId/task/:taskId', async (req, res) => {
     res.json({ success: true, deleted: snapshot.size });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete task notifications' });
+  }
+});
+
+app.delete('/api/notifications/:userId/habit/:habitId', async (req, res) => {
+  const { userId, habitId } = req.params;
+  
+  try {
+    const snapshot = await firestore
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .where('relatedId', '==', habitId)
+      .where('type', '==', 'habit')
+      .where('status', '==', 'pending')
+      .get();
+    
+    const deletePromises = snapshot.docs.map(doc => doc.ref.delete());
+    await Promise.all(deletePromises);
+    
+    res.json({ success: true, deleted: snapshot.size });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete habit notifications' });
   }
 });
 
