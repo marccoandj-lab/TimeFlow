@@ -507,9 +507,15 @@ function TasksView() {
   const [editingTask, setEditingTask] = useState(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
+  const [successMessage, setSuccessMessage] = useState('')
 
   const load = () => Promise.all([api.tasks.list({ search }), api.categories.list()]).then(([t, c]) => { setTasks(t); setCategories(c) })
   useEffect(() => { load() }, [search])
+
+  const showSuccess = (msg) => {
+    setSuccessMessage(msg)
+    setTimeout(() => setSuccessMessage(''), 2000)
+  }
 
   const filteredTasks = tasks.filter(t => {
     if (filter === 'pending') return t.status !== 'completed'
@@ -585,8 +591,17 @@ function TasksView() {
       )}
 
       <Modal isOpen={showModal} onClose={() => { setShowModal(false); load() }} title={editingTask ? 'Edit Task' : 'New Task'}>
-        <TaskForm task={editingTask} categories={categories} onClose={() => { setShowModal(false); load() }} />
+        <TaskForm task={editingTask} categories={categories} onClose={() => { setShowModal(false); load(); showSuccess(editingTask ? 'Task updated!' : 'Task created!') }} />
       </Modal>
+      
+      {successMessage && (
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl shadow-lg z-50 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-sm font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -895,14 +910,21 @@ function PomodoroTimer() {
 function HabitsView() {
   const [habits, setHabits] = useState(() => storage.get('habits', []))
   const [showModal, setShowModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
   const { scheduleHabitNotification } = useNotifications()
 
   useEffect(() => { api.habits.list().then(setHabits) }, [])
+
+  const showSuccess = (msg) => {
+    setSuccessMessage(msg)
+    setTimeout(() => setSuccessMessage(''), 2000)
+  }
 
   const handleComplete = async (id) => {
     try {
       const updated = await api.habits.complete(id)
       setHabits(habits.map(h => h.id === id ? updated : h))
+      showSuccess('Habit completed! +1 streak')
     } catch { alert('Already completed today!') }
   }
 
@@ -946,8 +968,17 @@ function HabitsView() {
       )}
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="New Habit">
-        <HabitForm onClose={() => { setShowModal(false); api.habits.list().then(setHabits) }} />
+        <HabitForm onClose={() => { setShowModal(false); api.habits.list().then(setHabits); showSuccess('Habit created!') }} />
       </Modal>
+      
+      {successMessage && (
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl shadow-lg z-50 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-sm font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1006,8 +1037,14 @@ function NotesView() {
   const [notes, setNotes] = useState(() => storage.get('notes', []))
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [successMessage, setSuccessMessage] = useState('')
 
   useEffect(() => { api.notes.list({}).then(setNotes) }, [])
+
+  const showSuccess = (msg) => {
+    setSuccessMessage(msg)
+    setTimeout(() => setSuccessMessage(''), 2000)
+  }
 
   const handleDelete = async (id) => {
     if (confirm('Delete this note?')) { await api.notes.delete(id); setNotes(notes.filter(n => n.id !== id)) }
@@ -1044,8 +1081,17 @@ function NotesView() {
       )}
 
       <Modal isOpen={showModal} onClose={() => { setShowModal(false); api.notes.list({}).then(setNotes) }} title={editing ? 'Edit Note' : 'New Note'}>
-        <NoteForm note={editing} onClose={() => { setShowModal(false); api.notes.list({}).then(setNotes) }} />
+        <NoteForm note={editing} onClose={() => { setShowModal(false); api.notes.list({}).then(setNotes); showSuccess(editing ? 'Note updated!' : 'Note created!') }} />
       </Modal>
+      
+      {successMessage && (
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl shadow-lg z-50 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-sm font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

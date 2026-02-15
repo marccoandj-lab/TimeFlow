@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { doc, setDoc, collection, addDoc, deleteDoc, query, where, getDocs, onSnapshot, orderBy } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
@@ -8,6 +8,8 @@ export function useNotifications() {
   return useContext(NotificationContext)
 }
 
+const scheduledNotificationsLocal = new Map()
+
 export function NotificationProvider({ children }) {
   const [fcmToken, setFcmToken] = useState(null)
   const [permission, setPermission] = useState('default')
@@ -16,6 +18,9 @@ export function NotificationProvider({ children }) {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setPermission(Notification.permission)
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(p => setPermission(p))
+      }
     }
   }, [])
 
@@ -120,83 +125,113 @@ export function NotificationProvider({ children }) {
   }
 
   const scheduleTaskNotification = async (task) => {
-    if (!auth?.currentUser || !db || !task.dueDate) return null
+    if (!task.dueDate) return null
 
-    try {
-      const dueDate = new Date(task.dueDate + (task.dueTime ? `T${task.dueTime}` : 'T09:00'))
-      const now = new Date()
+    const dueDate = new Date(task.dueDate + (task.dueTime ? `T${task.dueTime}` : 'T09:00'))
+    const now = new Date()
 
-      const notificationTimes = [
-        { minutes: 60, label: '1 hour before' },
-        { minutes: 30, label: '30 minutes before' },
-        { minutes: 15, label: '15 minutes before' },
-      ]
+    const notificationTimes = [
+      { minutes: 60, label: '1 hour before' },
+      { minutes: 30, label: '30 minutes before' },
+      { minutes: 15, label: '15 minutes before' },
+    ]
 
-      const scheduled = []
+    const scheduled = []
 
-      for (const { minutes, label } of notificationTimes) {
-        const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
-        
-        if (notifyTime <= now) continue
+    for (const { minutes, label } of notificationTimes) {
+      const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
+      
+      if (notifyTime <= now) continue
 
-        const notificationData = {
-          type: 'task',
-          taskId: task.id,
-          title: `⏰ ${task.title}`,
-          body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
-          scheduledFor: notifyTime.toISOString(),
-          createdAt: now.toISOString(),
-          status: 'pending'
+      const notificationId = `${task.id}-${minutes}`
+      const delay = notifyTime.getTime() - now.getTime()
+
+      const timeoutId = setTimeout(() => {
+        if (Notification.permission === 'granted') {
+          new Notification(`⏰ ${task.title}`, {
+            body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
+            icon: '/icon-192x192.png',
+            tag: notificationId
+          })
         }
+      }, delay)
 
-        const docRef = await addDoc(
-          collection(db, 'users', auth.currentUser.uid, 'notifications'),
-          notificationData
-        )
-
-        scheduled.push({ id: docRef.id, ...notificationData })
-      }
-
-      return scheduled
-    } catch (error) {
-      console.error('Error scheduling task notification:', error)
-      return null
+      scheduledNotificationsLocal.set(notificationId, timeoutId)
+      scheduled.push({ id: notificationId, minutes })
     }
+
+    if (auth?.currentUser && db) {
+      try {
+        for (const { minutes, label } of notificationTimes) {
+          const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
+          if (notifyTime <= now) continue
+          
+          await addDoc(
+            collection(db, 'users', auth.currentUser.uid, 'notifications'),
+            {
+              type: 'task',
+              taskId: task.id,
+              title: `⏰ ${task.title}`,
+              body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
+              scheduledFor: notifyTime.toISOString(),
+              createdAt: now.toISOString(),
+              status: 'pending'
+            }
+          )
+        }
+      } catch (error) {
+        console.error('Error saving to Firestore:', error)
+      }
+    }
+
+    return scheduled
   }
 
   const scheduleHabitNotification = async (habit) => {
-    if (!auth?.currentUser || !db) return null
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    const reminderTime = habit.reminderTime || '09:00'
+    const notifyTime = new Date(`${today}T${reminderTime}`)
 
-    try {
-      const now = new Date()
-      const today = now.toISOString().split('T')[0]
-      const reminderTime = habit.reminderTime || '09:00'
-      const notifyTime = new Date(`${today}T${reminderTime}`)
-
-      if (notifyTime <= now) {
-        notifyTime.setDate(notifyTime.getDate() + 1)
-      }
-
-      const notificationData = {
-        type: 'habit',
-        habitId: habit.id,
-        title: `🎯 ${habit.name}`,
-        body: "Time to complete your habit! Keep your streak going! 🔥",
-        scheduledFor: notifyTime.toISOString(),
-        createdAt: now.toISOString(),
-        status: 'pending'
-      }
-
-      const docRef = await addDoc(
-        collection(db, 'users', auth.currentUser.uid, 'notifications'),
-        notificationData
-      )
-
-      return { id: docRef.id, ...notificationData }
-    } catch (error) {
-      console.error('Error scheduling habit notification:', error)
-      return null
+    if (notifyTime <= now) {
+      notifyTime.setDate(notifyTime.getDate() + 1)
     }
+
+    const delay = notifyTime.getTime() - now.getTime()
+    const notificationId = `habit-${habit.id}`
+
+    const timeoutId = setTimeout(() => {
+      if (Notification.permission === 'granted') {
+        new Notification(`🎯 ${habit.name}`, {
+          body: "Time to complete your habit! Keep your streak going! 🔥",
+          icon: '/icon-192x192.png',
+          tag: notificationId
+        })
+      }
+    }, delay)
+
+    scheduledNotificationsLocal.set(notificationId, timeoutId)
+
+    if (auth?.currentUser && db) {
+      try {
+        await addDoc(
+          collection(db, 'users', auth.currentUser.uid, 'notifications'),
+          {
+            type: 'habit',
+            habitId: habit.id,
+            title: `🎯 ${habit.name}`,
+            body: "Time to complete your habit! Keep your streak going! 🔥",
+            scheduledFor: notifyTime.toISOString(),
+            createdAt: now.toISOString(),
+            status: 'pending'
+          }
+        )
+      } catch (error) {
+        console.error('Error saving to Firestore:', error)
+      }
+    }
+
+    return { id: notificationId }
   }
 
   const cancelNotification = async (notificationId) => {
@@ -210,19 +245,28 @@ export function NotificationProvider({ children }) {
   }
 
   const cancelTaskNotifications = async (taskId) => {
-    if (!auth?.currentUser || !db) return
+    const notificationTimes = [60, 30, 15]
+    for (const minutes of notificationTimes) {
+      const notificationId = `${taskId}-${minutes}`
+      const timeoutId = scheduledNotificationsLocal.get(notificationId)
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        scheduledNotificationsLocal.delete(notificationId)
+      }
+    }
 
-    try {
-      const q = query(
-        collection(db, 'users', auth.currentUser.uid, 'notifications'),
-        where('taskId', '==', taskId)
-      )
-
-      const snapshot = await getDocs(q)
-      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref))
-      await Promise.all(deletePromises)
-    } catch (error) {
-      console.error('Error canceling task notifications:', error)
+    if (auth?.currentUser && db) {
+      try {
+        const q = query(
+          collection(db, 'users', auth.currentUser.uid, 'notifications'),
+          where('taskId', '==', taskId)
+        )
+        const snapshot = await getDocs(q)
+        const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref))
+        await Promise.all(deletePromises)
+      } catch (error) {
+        console.error('Error canceling task notifications:', error)
+      }
     }
   }
 
