@@ -106,10 +106,11 @@ async function processScheduledNotifications() {
     const usersSnapshot = await firestore.collection('users').get();
     
     if (usersSnapshot.empty) {
-      console.log('No users found for notification processing');
+      console.log('ℹ️ No users found in Firestore');
       return;
     }
     
+    console.log(`📋 Found ${usersSnapshot.size} users`);
     let processedCount = 0;
     let sentCount = 0;
     
@@ -117,10 +118,14 @@ async function processScheduledNotifications() {
       const userData = userDoc.data();
       const userId = userDoc.id;
       
+      console.log(`👤 Checking user ${userId}...`);
+      
       if (!userData.fcmToken) {
-        console.log(`User ${userId} has no FCM token, skipping`);
+        console.log(`  ⚠️ No FCM token for user ${userId}`);
         continue;
       }
+      
+      console.log(`  📱 FCM token: ${userData.fcmToken.substring(0, 30)}...`);
       
       try {
         const notificationsSnapshot = await firestore
@@ -131,8 +136,11 @@ async function processScheduledNotifications() {
           .get();
         
         if (notificationsSnapshot.empty) {
+          console.log(`  ℹ️ No pending notifications for user ${userId}`);
           continue;
         }
+        
+        console.log(`  📬 Found ${notificationsSnapshot.size} pending notifications`);
         
         const nowTime = now.getTime();
         
@@ -141,12 +149,14 @@ async function processScheduledNotifications() {
           processedCount++;
           
           const scheduledTime = new Date(notif.scheduledFor).getTime();
+          const diff = Math.round((scheduledTime - nowTime) / 1000);
+          
           if (scheduledTime > nowTime) {
-            console.log(`Notification "${notif.title}" scheduled for ${notif.scheduledFor} - not yet due`);
+            console.log(`  ⏳ "${notif.title}" scheduled in ${diff}s (${notif.scheduledFor})`);
             continue;
           }
           
-          console.log(`Sending push notification: ${notif.title} - ${notif.body} to user ${userId}`);
+          console.log(`  🔔 SENDING: "${notif.title}" - ${notif.body}`);
           
           const sent = await sendPushNotification(
             userData.fcmToken,
@@ -161,23 +171,20 @@ async function processScheduledNotifications() {
               sentAt: now.toISOString() 
             });
             sentCount++;
-            console.log(`✅ Notification sent and marked as sent`);
+            console.log(`  ✅ Notification sent successfully`);
           } else {
-            console.log(`❌ Failed to send notification ${notifDoc.id}`);
+            console.log(`  ❌ Failed to send notification`);
           }
         }
       } catch (userError) {
-        console.error(`Error for user ${userId}:`, userError.message);
+        console.error(`  ❌ Error for user ${userId}:`, userError.message);
       }
     }
     
-    if (processedCount > 0) {
-      console.log(`Processed ${processedCount} notifications, sent ${sentCount}`);
-    }
+    console.log(`📊 Summary: processed=${processedCount}, sent=${sentCount}`);
   } catch (error) {
-    if (error.code !== 5) {
-      console.error('Error processing notifications:', error.message);
-    }
+    console.error('❌ Error processing notifications:', error.message);
+    console.error('Error code:', error.code);
   }
 }
 

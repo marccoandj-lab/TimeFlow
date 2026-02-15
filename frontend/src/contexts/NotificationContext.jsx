@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging'
 import { auth, app } from '../firebase'
 
@@ -14,15 +14,17 @@ const API_BASE = '/api'
 export function NotificationProvider({ children }) {
   const [fcmToken, setFcmToken] = useState(null)
   const [permission, setPermission] = useState('default')
-  const [messaging, setMessaging] = useState(null)
-  const [initialized, setInitialized] = useState(false)
+  const [messagingInstance, setMessagingInstance] = useState(null)
+  const [isReady, setIsReady] = useState(false)
+  const registeringRef = useRef(false)
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPermission(Notification.permission)
-    }
-    
-    const initMessaging = async () => {
+    const init = async () => {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setPermission(Notification.permission)
+        console.log('📢 Notification permission:', Notification.permission)
+      }
+      
       try {
         if (!app) {
           console.error('❌ Firebase app not initialized')
@@ -31,214 +33,202 @@ export function NotificationProvider({ children }) {
         
         const supported = await isSupported()
         if (!supported) {
-          console.error('❌ Firebase messaging not supported in this browser')
+          console.error('❌ Firebase messaging not supported')
           return
         }
         
         const msg = getMessaging(app)
-        setMessaging(msg)
+        setMessagingInstance(msg)
         console.log('✅ Firebase messaging initialized')
         
         onMessage(msg, (payload) => {
-          console.log('Foreground message:', payload)
-          if (Notification.permission === 'granted' && payload.notification) {
-            new Notification(payload.notification.title, {
-              body: payload.notification.body,
-              icon: '/icon-192x192.png',
-              tag: payload.data?.tag || 'timeflow',
-              requireInteraction: true
-            })
-          }
+          console.log('📨 Foreground FCM message:', payload)
+          showNotification(payload.notification?.title || 'TimeFlow', {
+            body: payload.notification?.body || '',
+            tag: payload.data?.tag || 'timeflow-foreground'
+          })
         })
         
-        setInitialized(true)
+        setIsReady(true)
       } catch (error) {
-        console.error('❌ Messaging initialization error:', error)
+        console.error('❌ Messaging init error:', error)
       }
     }
-    initMessaging()
+    init()
+  }, [])
+
+  const showNotification = useCallback((title, options = {}) => {
+    if (Notification.permission === 'granted') {
+      try {
+        const notification = new Notification(title, {
+          body: options.body || '',
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          tag: options.tag || 'timeflow',
+          requireInteraction: true,
+          vibrate: [200, 100, 200],
+          ...options
+        })
+        console.log('✅ Notification shown:', title)
+        return notification
+      } catch (e) {
+        console.error('❌ Notification error:', e)
+        return null
+      }
+    }
+    return null
   }, [])
 
   const registerFCMToken = useCallback(async () => {
-    console.log('registerFCMToken called, messaging:', !!messaging, 'currentUser:', !!auth?.currentUser)
+    if (registeringRef.current) {
+      console.log('FCM registration already in progress...')
+      return null
+    }
+    registeringRef.current = true
     
-    if (!messaging) {
-      console.error('❌ Messaging not initialized - cannot register FCM token')
+    console.log('🔄 Registering FCM token...')
+    console.log('  messagingInstance:', !!messagingInstance)
+    console.log('  auth.currentUser:', !!auth?.currentUser)
+    
+    if (!messagingInstance) {
+      console.error('❌ Messaging not initialized')
+      registeringRef.current = false
       return null
     }
     
     if (!auth?.currentUser) {
-      console.error('❌ No current user - cannot register FCM token')
+      console.error('❌ No current user')
+      registeringRef.current = false
       return null
     }
     
     try {
       const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
       if (!vapidKey) {
-        console.error('❌ VAPID key not configured - check VITE_FIREBASE_VAPID_KEY environment variable')
+        console.error('❌ VAPID key missing')
+        registeringRef.current = false
         return null
       }
       
-      console.log('Requesting FCM token...')
-      
-      const token = await getToken(messaging, { vapidKey })
+      const token = await getToken(messagingInstance, { vapidKey })
       
       if (token) {
         setFcmToken(token)
-        console.log('✅ FCM token obtained:', token.substring(0, 20) + '...')
-        console.log('User ID:', auth.currentUser.uid)
+        console.log('✅ FCM token:', token.substring(0, 30) + '...')
+        console.log('✅ User ID:', auth.currentUser.uid)
         
-        const response = await fetch(`${API_BASE}/notifications/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            userId: auth.currentUser.uid, 
-            fcmToken: token 
+        try {
+          const response = await fetch(`${API_BASE}/notifications/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              userId: auth.currentUser.uid, 
+              fcmToken: token 
+            })
           })
-        })
-        
-        if (response.ok) {
-          console.log('✅ FCM token registered with backend')
-        } else {
-          console.error('❌ Failed to register FCM token with backend, status:', response.status)
+          
+          if (response.ok) {
+            console.log('✅ FCM token registered with backend')
+          } else {
+            console.error('❌ Backend registration failed:', response.status)
+          }
+        } catch (e) {
+          console.error('❌ Backend registration error:', e)
         }
         
+        registeringRef.current = false
         return token
       } else {
-        console.error('❌ No FCM token received from Firebase')
+        console.error('❌ No FCM token received')
+        registeringRef.current = false
         return null
       }
     } catch (e) {
-      console.error('❌ FCM token registration error:', e.code || e.name, e.message)
+      console.error('❌ FCM token error:', e.code, e.message)
+      registeringRef.current = false
       return null
     }
-  }, [messaging])
+  }, [messagingInstance])
 
   useEffect(() => {
-    if (initialized && auth?.currentUser && messaging) {
-      console.log('Attempting to register FCM token...')
-      console.log('Permission:', Notification.permission)
-      
-      if (Notification.permission === 'granted') {
-        registerFCMToken()
-      } else if (Notification.permission === 'default') {
-        console.log('Notification permission not yet requested')
-      } else {
-        console.log('Notification permission denied')
-      }
+    if (isReady && auth?.currentUser && messagingInstance && Notification.permission === 'granted') {
+      registerFCMToken()
     }
-  }, [initialized, auth?.currentUser, messaging, registerFCMToken])
-
-  useEffect(() => {
-    if (fcmToken && auth?.currentUser) {
-      console.log('✅ FCM token available:', fcmToken.substring(0, 20) + '...')
-    }
-  }, [fcmToken])
-
-  const registerFCMToken = async () => {
-    if (!messaging) {
-      console.error('❌ Messaging not initialized - cannot register FCM token')
-      return null
-    }
-    
-    if (!auth?.currentUser) {
-      console.error('❌ No current user - cannot register FCM token')
-      return null
-    }
-    
-    try {
-      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
-      if (!vapidKey) {
-        console.error('❌ VAPID key not configured - check VITE_FIREBASE_VAPID_KEY environment variable')
-        return null
-      }
-      
-      console.log('Requesting FCM token with VAPID key:', vapidKey.substring(0, 20) + '...')
-      
-      const token = await getToken(messaging, { vapidKey })
-      
-      if (token) {
-        setFcmToken(token)
-        console.log('✅ FCM token obtained:', token.substring(0, 20) + '...')
-        console.log('User ID:', auth.currentUser.uid)
-        
-        const response = await fetch(`${API_BASE}/notifications/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            userId: auth.currentUser.uid, 
-            fcmToken: token 
-          })
-        })
-        
-        if (response.ok) {
-          console.log('✅ FCM token registered with backend')
-        } else {
-          console.error('❌ Failed to register FCM token with backend, status:', response.status)
-        }
-        
-        return token
-      } else {
-        console.error('❌ No FCM token received from Firebase')
-        return null
-      }
-    } catch (e) {
-      console.error('❌ FCM token registration error:', e.code || e.name, e.message)
-      return null
-    }
-  }
+  }, [isReady, auth?.currentUser, messagingInstance, registerFCMToken])
 
   const requestPermission = async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
+      console.error('❌ Notifications not supported')
       return false
     }
 
     try {
+      console.log('🔄 Requesting notification permission...')
       const result = await Notification.requestPermission()
       setPermission(result)
+      console.log('📢 Permission result:', result)
       
       if (result === 'granted') {
-        new Notification('✅ TimeFlow Notifications Enabled', {
-          body: 'You will receive reminders for your tasks and habits!',
-          icon: '/icon-192x192.png'
+        showNotification('✅ TimeFlow Notifications Enabled', {
+          body: 'You will receive reminders for your tasks and habits!'
         })
-        
         await registerFCMToken()
+        return true
       }
-      return result === 'granted'
+      return false
     } catch (error) {
-      console.error('Error requesting permission:', error)
+      console.error('❌ Permission error:', error)
       return false
     }
   }
 
+  const checkNotificationSupport = useCallback(() => {
+    const support = {
+      notificationAPI: typeof Notification !== 'undefined',
+      serviceWorker: 'serviceWorker' in navigator,
+      permission: Notification.permission,
+      fcmToken: !!fcmToken,
+      ready: isReady
+    }
+    console.log('📊 Notification support:', support)
+    return support
+  }, [fcmToken, isReady])
+
   const scheduleTaskNotification = async (task) => {
-    if (!task.dueDate) {
-      console.log('No due date for task')
+    console.log('🔔 scheduleTaskNotification called for:', task.title)
+    
+    const support = checkNotificationSupport()
+    
+    if (!support.notificationAPI) {
+      console.error('❌ Notifications not supported in this browser')
       return null
     }
 
     if (Notification.permission !== 'granted') {
+      console.log('Permission not granted, requesting...')
       const granted = await requestPermission()
       if (!granted) {
-        console.log('Notification permission not granted')
+        console.error('❌ Notification permission denied')
         return null
       }
     }
 
-    if (!fcmToken) {
-      console.warn('No FCM token - attempting to register...')
-      const token = await registerFCMToken()
-      if (!token) {
-        console.error('Failed to get FCM token - push notifications will not work when app is closed')
-      }
+    if (!task.dueDate) {
+      console.error('❌ No due date for task')
+      return null
+    }
+
+    let currentToken = fcmToken
+    if (!currentToken && messagingInstance && auth?.currentUser) {
+      console.log('No FCM token, attempting to register...')
+      currentToken = await registerFCMToken()
     }
 
     const dueDate = new Date(task.dueDate + 'T' + (task.dueTime || '09:00'))
     const now = new Date()
 
-    console.log('Scheduling notifications for task:', task.title)
-    console.log('Due date:', dueDate.toISOString())
+    console.log('📅 Due date:', dueDate.toISOString())
+    console.log('🕐 Now:', now.toISOString())
 
     const notificationTimes = [
       { minutes: 60, label: '1 hour before' },
@@ -254,42 +244,31 @@ export function NotificationProvider({ children }) {
       const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
       
       if (notifyTime <= now) {
-        console.log(`Skipping ${label} - already passed`)
+        console.log(`⏭️ Skipping ${label} - already passed`)
         continue
       }
 
       const notificationId = `${task.id}-${minutes}`
       const delay = notifyTime.getTime() - now.getTime()
 
-      console.log(`Scheduling ${label} notification at ${notifyTime.toLocaleTimeString()} (in ${Math.round(delay/1000)}s)`)
+      console.log(`⏰ Scheduling ${label} notification in ${Math.round(delay/1000)}s`)
 
+      // Local notification (works when app is open)
       if (delay < 2147483647) {
         const timeoutId = setTimeout(() => {
-          console.log(`Triggering local notification: ${task.title} - ${label}`)
-          if (Notification.permission === 'granted') {
-            try {
-              new Notification(`⏰ ${task.title}`, {
-                body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
-                icon: '/icon-192x192.png',
-                tag: notificationId,
-                requireInteraction: true
-              })
-            } catch (e) {
-              console.error('Local notification error:', e)
-            }
-          }
+          console.log(`🔔 TRIGGERING: ${task.title} - ${label}`)
+          showNotification(`⏰ ${task.title}`, {
+            body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
+            tag: notificationId
+          })
         }, delay)
         scheduledNotificationsLocal.set(notificationId, timeoutId)
+        console.log(`✅ Local notification scheduled: ${notificationId}`)
       }
-      scheduled.push({ id: notificationId, minutes })
-    }
 
-    if (auth?.currentUser && fcmToken) {
-      try {
-        for (const { minutes, label } of notificationTimes) {
-          const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
-          if (notifyTime <= now) continue
-          
+      // Backend FCM notification (works when app is closed)
+      if (auth?.currentUser && currentToken) {
+        try {
           const response = await fetch(`${API_BASE}/notifications/schedule`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -304,14 +283,21 @@ export function NotificationProvider({ children }) {
           })
           
           if (response.ok) {
-            console.log(`Scheduled FCM push notification for ${label}`)
+            console.log(`✅ FCM notification scheduled for ${label}`)
+          } else {
+            console.error(`❌ FCM schedule failed for ${label}:`, response.status)
           }
+        } catch (e) {
+          console.error(`❌ FCM schedule error for ${label}:`, e)
         }
-      } catch (error) {
-        console.error('Error scheduling FCM notification:', error)
+      } else {
+        console.warn(`⚠️ No FCM token - backend notification skipped for ${label}`)
       }
+      
+      scheduled.push({ id: notificationId, minutes })
     }
 
+    console.log(`📋 Total scheduled: ${scheduled.length} notifications`)
     return scheduled
   }
 
@@ -333,23 +319,19 @@ export function NotificationProvider({ children }) {
     const delay = notifyTime.getTime() - now.getTime()
     const notificationId = `habit-${habit.id}`
 
-    console.log(`Scheduling habit notification for ${habit.name} at ${notifyTime.toLocaleTimeString()}`)
+    console.log(`🔔 Scheduling habit: ${habit.name} in ${Math.round(delay/1000)}s`)
 
     if (delay < 2147483647) {
       const timeoutId = setTimeout(() => {
-        if (Notification.permission === 'granted') {
-          new Notification(`🎯 ${habit.name}`, {
-            body: "Time to complete your habit! Keep your streak going! 🔥",
-            icon: '/icon-192x192.png',
-            tag: notificationId,
-            requireInteraction: true
-          })
-        }
+        showNotification(`🎯 ${habit.name}`, {
+          body: "Time to complete your habit! Keep your streak going! 🔥",
+          tag: notificationId
+        })
       }, delay)
       scheduledNotificationsLocal.set(notificationId, timeoutId)
     }
 
-    if (auth?.currentUser) {
+    if (auth?.currentUser && fcmToken) {
       try {
         await fetch(`${API_BASE}/notifications/schedule`, {
           method: 'POST',
@@ -364,7 +346,7 @@ export function NotificationProvider({ children }) {
           })
         })
       } catch (error) {
-        console.error('Error scheduling via backend:', error)
+        console.error('Error scheduling habit notification:', error)
       }
     }
 
@@ -408,7 +390,8 @@ export function NotificationProvider({ children }) {
     scheduleTaskNotification,
     scheduleHabitNotification,
     cancelNotification,
-    cancelTaskNotifications
+    cancelTaskNotifications,
+    checkNotificationSupport
   }
 
   return (
