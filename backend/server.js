@@ -656,11 +656,26 @@ app.get('/api/stats', (req, res) => {
 // Serve frontend in production
 const frontendPath = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendPath)) {
-  app.use(express.static(frontendPath));
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(frontendPath, 'index.html'));
+  // Explicit route for service worker with correct headers
+  app.get('/firebase-messaging-sw.js', (req, res) => {
+    const swPath = path.join(frontendPath, 'firebase-messaging-sw.js');
+    if (fs.existsSync(swPath)) {
+      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Service-Worker-Allowed', '/');
+      res.sendFile(swPath);
+    } else {
+      console.error('Service worker file not found:', swPath);
+      res.status(404).send('Service worker not found');
     }
+  });
+  
+  app.use(express.static(frontendPath));
+  
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) {
+      return
+    }
+    res.sendFile(path.join(frontendPath, 'index.html'));
   });
 }
 
