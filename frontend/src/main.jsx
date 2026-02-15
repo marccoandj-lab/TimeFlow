@@ -40,16 +40,27 @@ class ErrorBoundary extends React.Component {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
-      console.log('Firebase SW registered')
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { 
+        scope: '/',
+        updateViaCache: 'none'
+      })
+      console.log('✅ Service Worker registered:', registration.scope)
+      
+      if (registration.waiting) {
+        console.log('Service Worker waiting, skipping...')
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+      }
+      
+      registration.onupdatefound = () => {
+        const newWorker = registration.installing
+        newWorker.onstatechange = () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('New Service Worker installed, refresh to activate')
+          }
+        }
+      }
     } catch (e) {
-      console.log('Firebase SW registration failed:', e)
-    }
-    try {
-      await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      console.log('Cache SW registered')
-    } catch (e) {
-      console.log('Cache SW registration failed:', e)
+      console.error('❌ Service Worker registration failed:', e)
     }
   })
 }
