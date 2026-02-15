@@ -86,18 +86,14 @@ async function processScheduledNotifications() {
     const usersSnapshot = await firestore.collection('users').get();
     
     if (usersSnapshot.empty) {
-      console.log('No users found');
       return;
     }
-    
-    console.log(`Processing notifications at ${now.toISOString()}`);
     
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
       const userId = userDoc.id;
       
       if (!userData.fcmToken) {
-        console.log(`User ${userId} has no FCM token`);
         continue;
       }
       
@@ -107,17 +103,21 @@ async function processScheduledNotifications() {
           .doc(userId)
           .collection('notifications')
           .where('status', '==', 'pending')
-          .where('scheduledFor', '<=', now.toISOString())
           .get();
         
         if (notificationsSnapshot.empty) {
           continue;
         }
         
-        console.log(`Found ${notificationsSnapshot.size} pending notifications for user ${userId}`);
+        const nowTime = now.getTime();
         
         for (const notifDoc of notificationsSnapshot.docs) {
           const notif = notifDoc.data();
+          
+          const scheduledTime = new Date(notif.scheduledFor).getTime();
+          if (scheduledTime > nowTime) {
+            continue;
+          }
           
           console.log(`Sending notification: ${notif.title} - ${notif.body}`);
           
@@ -134,8 +134,6 @@ async function processScheduledNotifications() {
               sentAt: now.toISOString() 
             });
             console.log(`Notification sent and marked as sent`);
-          } else {
-            console.log(`Failed to send notification`);
           }
         }
       } catch (userError) {
@@ -143,7 +141,9 @@ async function processScheduledNotifications() {
       }
     }
   } catch (error) {
-    console.error('Error processing notifications:', error.message);
+    if (error.code !== 5) {
+      console.error('Error processing notifications:', error.message);
+    }
   }
 }
 
