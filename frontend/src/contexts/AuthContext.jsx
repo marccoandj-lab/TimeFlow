@@ -128,7 +128,11 @@ export function AuthProvider({ children }) {
         localStorage.setItem('timeflow_userData', JSON.stringify(data))
       }
     } catch (err) {
-      console.error('Error fetching user data:', err)
+      if (err.code === 'unavailable' || err.message?.includes('offline')) {
+        console.warn('Firestore offline - using cached data')
+      } else {
+        console.error('Error fetching user data:', err)
+      }
     }
   }
 

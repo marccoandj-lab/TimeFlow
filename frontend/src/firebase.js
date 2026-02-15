@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore, initializeFirestore, CACHE_SIZE_UNLIMITED } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -19,7 +19,9 @@ try {
   if (firebaseConfig.apiKey) {
     app = initializeApp(firebaseConfig)
     auth = getAuth(app)
-    db = getFirestore(app)
+    db = initializeFirestore(app, {
+      cache: CACHE_SIZE_UNLIMITED
+    })
   }
 } catch (error) {
   console.error('Firebase initialization error:', error)
