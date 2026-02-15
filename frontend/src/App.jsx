@@ -615,7 +615,6 @@ function TaskForm({ task, categories, onClose }) {
     priority: task?.priority || 'medium',
     dueDate: task?.dueDate?.split('T')[0] || '',
     dueTime: task?.dueTime || '',
-    estimatedMinutes: task?.estimatedMinutes || 30,
     reminder: task?.reminder ?? true
   })
   const [errors, setErrors] = useState({})
@@ -626,7 +625,6 @@ function TaskForm({ task, categories, onClose }) {
     if (!form.title.trim()) newErrors.title = 'Title is required'
     if (!form.dueDate) newErrors.dueDate = 'Due date is required'
     if (!form.dueTime) newErrors.dueTime = 'Due time is required'
-    if (!form.estimatedMinutes || form.estimatedMinutes < 5) newErrors.estimatedMinutes = 'Est. time must be at least 5 min'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -702,11 +700,6 @@ function TaskForm({ task, categories, onClose }) {
           <input type="time" value={form.dueTime} onChange={(e) => setForm({...form, dueTime: e.target.value})} className={`input ${errors.dueTime ? 'border-red-500' : ''}`} />
           {errors.dueTime && <p className="text-red-500 text-xs mt-1">{errors.dueTime}</p>}
         </div>
-      </div>
-      <div>
-        <label className="label">Estimated Time (minutes) *</label>
-        <input type="number" value={form.estimatedMinutes} onChange={(e) => setForm({...form, estimatedMinutes: parseInt(e.target.value) || 30})} className={`input ${errors.estimatedMinutes ? 'border-red-500' : ''}`} min="5" step="5" />
-        {errors.estimatedMinutes && <p className="text-red-500 text-xs mt-1">{errors.estimatedMinutes}</p>}
       </div>
       <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
         <div className="flex items-center gap-3">

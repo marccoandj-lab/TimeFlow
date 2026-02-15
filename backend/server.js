@@ -278,8 +278,6 @@ app.post('/api/tasks', (req, res) => {
     status: 'pending',
     dueDate: req.body.dueDate || null,
     dueTime: req.body.dueTime || null,
-    estimatedMinutes: req.body.estimatedMinutes || 30,
-    actualMinutes: 0,
     createdAt: new Date().toISOString(),
     completedAt: null,
     recurrence: req.body.recurrence || null,
