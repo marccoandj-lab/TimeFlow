@@ -1,9 +1,10 @@
-const CACHE_NAME = 'timeflow-v1'
+const CACHE_NAME = 'timeflow-v2'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icon-192x192.svg'
+  '/icon-192x192.png',
+  '/icon-512x512.png'
 ]
 
 self.addEventListener('install', (event) => {

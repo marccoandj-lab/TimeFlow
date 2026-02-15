@@ -18,10 +18,39 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
+const getCachedUser = () => {
+  try {
+    const cached = localStorage.getItem('timeflow_cachedUser')
+    if (cached) return JSON.parse(cached)
+  } catch {}
+  return null
+}
+
+const setCachedUser = (user) => {
+  try {
+    if (user) {
+      localStorage.setItem('timeflow_cachedUser', JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL
+      }))
+    } else {
+      localStorage.removeItem('timeflow_cachedUser')
+    }
+  } catch {}
+}
+
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null)
-  const [userData, setUserData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const cachedUser = getCachedUser()
+  const [currentUser, setCurrentUser] = useState(cachedUser)
+  const [userData, setUserData] = useState(() => {
+    try {
+      const cached = localStorage.getItem('timeflow_userData')
+      return cached ? JSON.parse(cached) : null
+    } catch { return null }
+  })
+  const [loading, setLoading] = useState(!cachedUser)
   const [error, setError] = useState(null)
 
   async function signup(email, password, displayName) {
@@ -94,7 +123,9 @@ export function AuthProvider({ children }) {
       const userRef = doc(db, 'users', uid)
       const userSnap = await getDoc(userRef)
       if (userSnap.exists()) {
-        setUserData(userSnap.data())
+        const data = userSnap.data()
+        setUserData(data)
+        localStorage.setItem('timeflow_userData', JSON.stringify(data))
       }
     } catch (err) {
       console.error('Error fetching user data:', err)
@@ -110,10 +141,12 @@ export function AuthProvider({ children }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
+      setCachedUser(user)
       if (user) {
         await fetchUserData(user.uid)
       } else {
         setUserData(null)
+        localStorage.removeItem('timeflow_userData')
       }
       setLoading(false)
     }, (err) => {

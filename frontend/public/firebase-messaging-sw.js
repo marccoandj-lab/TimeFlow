@@ -17,8 +17,8 @@ onBackgroundMessage(messaging, (payload) => {
   const notificationTitle = payload.notification?.title || 'TimeFlow Reminder'
   const notificationOptions = {
     body: payload.notification?.body || 'You have an upcoming task!',
-    icon: '/icon-192x192.svg',
-    badge: '/icon-192x192.svg',
+    icon: '/icon-192x192.png',
+    badge: '/icon-192x192.png',
     tag: payload.data?.tag || 'timeflow-notification',
     data: payload.data,
     requireInteraction: true,

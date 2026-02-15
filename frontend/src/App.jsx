@@ -1153,8 +1153,11 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950">
-        <div className="animate-spin w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full" />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-3">
+          <Sparkles className="w-6 h-6 text-white" />
+        </div>
+        <div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full" />
       </div>
     )
   }
