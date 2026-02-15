@@ -355,52 +355,6 @@ export function NotificationProvider({ children }) {
     return { id: notificationId }
   }
 
-    const now = new Date()
-    const today = now.toISOString().split('T')[0]
-    const reminderTime = habit.reminderTime || '09:00'
-    const notifyTime = new Date(`${today}T${reminderTime}`)
-
-    if (notifyTime <= now) {
-      notifyTime.setDate(notifyTime.getDate() + 1)
-    }
-
-    const delay = notifyTime.getTime() - now.getTime()
-    const notificationId = `habit-${habit.id}`
-
-    console.log(`🔔 Scheduling habit: ${habit.name} in ${Math.round(delay/1000)}s`)
-
-    if (delay < 2147483647) {
-      const timeoutId = setTimeout(() => {
-        showNotification(`🎯 ${habit.name}`, {
-          body: "Time to complete your habit! Keep your streak going! 🔥",
-          tag: notificationId
-        })
-      }, delay)
-      scheduledNotificationsLocal.set(notificationId, timeoutId)
-    }
-
-    if (auth?.currentUser && fcmToken) {
-      try {
-        await fetch(`${API_BASE}/notifications/schedule`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: auth.currentUser.uid,
-            title: `🎯 ${habit.name}`,
-            body: "Time to complete your habit! Keep your streak going! 🔥",
-            scheduledFor: notifyTime.toISOString(),
-            type: 'habit',
-            relatedId: habit.id
-          })
-        })
-      } catch (error) {
-        console.error('Error scheduling habit notification:', error)
-      }
-    }
-
-    return { id: notificationId }
-  }
-
   const cancelNotification = async (notificationId) => {
     const timeoutId = scheduledNotificationsLocal.get(notificationId)
     if (timeoutId) {
