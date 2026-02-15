@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { doc, setDoc, collection, addDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging'
+import { auth, db, app } from '../firebase'
 
 const NotificationContext = createContext()
 
@@ -9,16 +10,40 @@ export function useNotifications() {
 }
 
 const scheduledNotificationsLocal = new Map()
+const API_BASE = '/api'
 
 export function NotificationProvider({ children }) {
   const [fcmToken, setFcmToken] = useState(null)
   const [permission, setPermission] = useState('default')
   const [scheduledNotifications, setScheduledNotifications] = useState([])
+  const [messaging, setMessaging] = useState(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setPermission(Notification.permission)
     }
+    
+    const initMessaging = async () => {
+      try {
+        if (app && await isSupported()) {
+          const msg = getMessaging(app)
+          setMessaging(msg)
+          
+          onMessage(msg, (payload) => {
+            console.log('Foreground message:', payload)
+            if (Notification.permission === 'granted') {
+              new Notification(payload.notification.title, {
+                body: payload.notification.body,
+                icon: '/icon-192x192.png'
+              })
+            }
+          })
+        }
+      } catch (error) {
+        console.log('Messaging not supported:', error)
+      }
+    }
+    initMessaging()
   }, [])
 
   const requestPermission = async () => {
@@ -35,6 +60,24 @@ export function NotificationProvider({ children }) {
           body: 'You will receive reminders for your tasks and habits!',
           icon: '/icon-192x192.png'
         })
+        
+        if (messaging && auth?.currentUser) {
+          try {
+            const token = await getToken(messaging, {
+              vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
+            })
+            if (token) {
+              setFcmToken(token)
+              await fetch(`${API_BASE}/notifications/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: auth.currentUser.uid, fcmToken: token })
+              })
+            }
+          } catch (e) {
+            console.log('FCM token error:', e)
+          }
+        }
       }
       return result === 'granted'
     } catch (error) {
@@ -66,55 +109,52 @@ export function NotificationProvider({ children }) {
 
     for (const { minutes, label } of notificationTimes) {
       const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
-      
       if (notifyTime <= now) continue
 
       const notificationId = `${task.id}-${minutes}`
       const delay = notifyTime.getTime() - now.getTime()
 
-      console.log(`Scheduling notification for ${task.title} at ${notifyTime.toLocaleTimeString()} (in ${Math.round(delay/1000)}s)`)
-
-      const timeoutId = setTimeout(() => {
-        console.log(`Triggering notification: ${task.title}`)
-        if (Notification.permission === 'granted') {
-          try {
-            new Notification(`⏰ ${task.title}`, {
-              body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
-              icon: '/icon-192x192.png',
-              tag: notificationId,
-              requireInteraction: true
-            })
-          } catch (e) {
-            console.error('Notification error:', e)
+      if (delay < 2147483647) {
+        const timeoutId = setTimeout(() => {
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification(`⏰ ${task.title}`, {
+                body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
+                icon: '/icon-192x192.png',
+                tag: notificationId,
+                requireInteraction: true
+              })
+            } catch (e) {
+              console.error('Notification error:', e)
+            }
           }
-        }
-      }, delay)
-
-      scheduledNotificationsLocal.set(notificationId, timeoutId)
+        }, delay)
+        scheduledNotificationsLocal.set(notificationId, timeoutId)
+      }
       scheduled.push({ id: notificationId, minutes })
     }
 
-    if (auth?.currentUser && db) {
+    if (auth?.currentUser) {
       try {
         for (const { minutes, label } of notificationTimes) {
           const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
           if (notifyTime <= now) continue
           
-          await addDoc(
-            collection(db, 'users', auth.currentUser.uid, 'notifications'),
-            {
-              type: 'task',
-              taskId: task.id,
+          await fetch(`${API_BASE}/notifications/schedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: auth.currentUser.uid,
               title: `⏰ ${task.title}`,
               body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
               scheduledFor: notifyTime.toISOString(),
-              createdAt: now.toISOString(),
-              status: 'pending'
-            }
-          )
+              type: 'task',
+              relatedId: task.id
+            })
+          })
         }
       } catch (error) {
-        console.error('Error saving to Firestore:', error)
+        console.error('Error scheduling via backend:', error)
       }
     }
 
@@ -139,34 +179,35 @@ export function NotificationProvider({ children }) {
     const delay = notifyTime.getTime() - now.getTime()
     const notificationId = `habit-${habit.id}`
 
-    const timeoutId = setTimeout(() => {
-      if (Notification.permission === 'granted') {
-        new Notification(`🎯 ${habit.name}`, {
-          body: "Time to complete your habit! Keep your streak going! 🔥",
-          icon: '/icon-192x192.png',
-          tag: notificationId
-        })
-      }
-    }, delay)
+    if (delay < 2147483647) {
+      const timeoutId = setTimeout(() => {
+        if (Notification.permission === 'granted') {
+          new Notification(`🎯 ${habit.name}`, {
+            body: "Time to complete your habit! Keep your streak going! 🔥",
+            icon: '/icon-192x192.png',
+            tag: notificationId
+          })
+        }
+      }, delay)
+      scheduledNotificationsLocal.set(notificationId, timeoutId)
+    }
 
-    scheduledNotificationsLocal.set(notificationId, timeoutId)
-
-    if (auth?.currentUser && db) {
+    if (auth?.currentUser) {
       try {
-        await addDoc(
-          collection(db, 'users', auth.currentUser.uid, 'notifications'),
-          {
-            type: 'habit',
-            habitId: habit.id,
+        await fetch(`${API_BASE}/notifications/schedule`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: auth.currentUser.uid,
             title: `🎯 ${habit.name}`,
             body: "Time to complete your habit! Keep your streak going! 🔥",
             scheduledFor: notifyTime.toISOString(),
-            createdAt: now.toISOString(),
-            status: 'pending'
-          }
-        )
+            type: 'habit',
+            relatedId: habit.id
+          })
+        })
       } catch (error) {
-        console.error('Error saving to Firestore:', error)
+        console.error('Error scheduling via backend:', error)
       }
     }
 

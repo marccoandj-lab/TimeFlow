@@ -618,49 +618,72 @@ function TaskForm({ task, categories, onClose }) {
     estimatedMinutes: task?.estimatedMinutes || 30,
     reminder: task?.reminder ?? true
   })
+  const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const validate = () => {
+    const newErrors = {}
+    if (!form.title.trim()) newErrors.title = 'Title is required'
+    if (!form.dueDate) newErrors.dueDate = 'Due date is required'
+    if (!form.dueTime) newErrors.dueTime = 'Due time is required'
+    if (!form.estimatedMinutes || form.estimatedMinutes < 5) newErrors.estimatedMinutes = 'Est. time must be at least 5 min'
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const submit = async (e) => {
     e.preventDefault()
     
-    if (form.reminder && form.dueDate && permission !== 'granted') {
-      const granted = await requestPermission()
-      if (!granted) {
-        alert('Please allow notifications to receive reminders')
-      }
-    }
+    if (!validate()) return
     
-    if (task) {
-      await api.tasks.update(task.id, form)
-      if (form.reminder && form.dueDate) {
-        await scheduleTaskNotification({ ...form, id: task.id })
+    setIsSubmitting(true)
+    
+    try {
+      if (form.reminder && form.dueDate && permission !== 'granted') {
+        const granted = await requestPermission()
+        if (!granted) {
+          alert('Please allow notifications to receive reminders')
+        }
+      }
+      
+      if (task) {
+        await api.tasks.update(task.id, form)
+        if (form.reminder && form.dueDate) {
+          await scheduleTaskNotification({ ...form, id: task.id })
+        } else {
+          await cancelTaskNotifications(task.id)
+        }
       } else {
-        await cancelTaskNotifications(task.id)
+        const newTask = await api.tasks.create(form)
+        if (form.reminder && form.dueDate) {
+          await scheduleTaskNotification({ ...form, id: newTask.id })
+        }
       }
-    } else {
-      const newTask = await api.tasks.create(form)
-      if (form.reminder && form.dueDate) {
-        await scheduleTaskNotification({ ...form, id: newTask.id })
-      }
+      onClose()
+    } catch (error) {
+      console.error('Error saving task:', error)
+    } finally {
+      setIsSubmitting(false)
     }
-    onClose()
   }
 
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="label">What needs to be done?</label>
-        <input type="text" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} className="input" placeholder="Enter task title" required autoFocus />
+        <label className="label">What needs to be done? *</label>
+        <input type="text" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} className={`input ${errors.title ? 'border-red-500' : ''}`} placeholder="Enter task title" autoFocus />
+        {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Category</label>
+          <label className="label">Category *</label>
           <select value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="input">
             {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             <option value="general">General</option>
           </select>
         </div>
         <div>
-          <label className="label">Priority</label>
+          <label className="label">Priority *</label>
           <select value={form.priority} onChange={(e) => setForm({...form, priority: e.target.value})} className="input">
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -670,17 +693,20 @@ function TaskForm({ task, categories, onClose }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Due Date</label>
-          <input type="date" value={form.dueDate} onChange={(e) => setForm({...form, dueDate: e.target.value})} className="input" />
+          <label className="label">Due Date *</label>
+          <input type="date" value={form.dueDate} onChange={(e) => setForm({...form, dueDate: e.target.value})} className={`input ${errors.dueDate ? 'border-red-500' : ''}`} />
+          {errors.dueDate && <p className="text-red-500 text-xs mt-1">{errors.dueDate}</p>}
         </div>
         <div>
-          <label className="label">Time</label>
-          <input type="time" value={form.dueTime} onChange={(e) => setForm({...form, dueTime: e.target.value})} className="input" />
+          <label className="label">Time *</label>
+          <input type="time" value={form.dueTime} onChange={(e) => setForm({...form, dueTime: e.target.value})} className={`input ${errors.dueTime ? 'border-red-500' : ''}`} />
+          {errors.dueTime && <p className="text-red-500 text-xs mt-1">{errors.dueTime}</p>}
         </div>
       </div>
       <div>
-        <label className="label">Estimated Time (minutes)</label>
-        <input type="number" value={form.estimatedMinutes} onChange={(e) => setForm({...form, estimatedMinutes: parseInt(e.target.value) || 30})} className="input" min="5" step="5" />
+        <label className="label">Estimated Time (minutes) *</label>
+        <input type="number" value={form.estimatedMinutes} onChange={(e) => setForm({...form, estimatedMinutes: parseInt(e.target.value) || 30})} className={`input ${errors.estimatedMinutes ? 'border-red-500' : ''}`} min="5" step="5" />
+        {errors.estimatedMinutes && <p className="text-red-500 text-xs mt-1">{errors.estimatedMinutes}</p>}
       </div>
       <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
         <div className="flex items-center gap-3">
@@ -695,8 +721,8 @@ function TaskForm({ task, categories, onClose }) {
         </button>
       </div>
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
-        <button type="submit" className="btn btn-primary flex-1">{task ? 'Save' : 'Create'}</button>
+        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
+        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (task ? 'Save' : 'Create')}</button>
       </div>
     </form>
   )
@@ -994,30 +1020,51 @@ function HabitsView() {
 function HabitForm({ onClose }) {
   const { scheduleHabitNotification, permission, requestPermission } = useNotifications()
   const [form, setForm] = useState({ name: '', color: '#6366f1', reminder: true, reminderTime: '09:00' })
+  const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1']
+
+  const validate = () => {
+    const newErrors = {}
+    if (!form.name.trim()) newErrors.name = 'Habit name is required'
+    if (!form.reminderTime) newErrors.reminderTime = 'Reminder time is required'
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const submit = async (e) => {
     e.preventDefault()
     
-    if (form.reminder && permission !== 'granted') {
-      await requestPermission()
-    }
+    if (!validate()) return
     
-    const newHabit = await api.habits.create(form)
-    if (form.reminder) {
-      await scheduleHabitNotification({ ...form, id: newHabit.id })
+    setIsSubmitting(true)
+    
+    try {
+      if (form.reminder && permission !== 'granted') {
+        await requestPermission()
+      }
+      
+      const newHabit = await api.habits.create(form)
+      if (form.reminder) {
+        await scheduleHabitNotification({ ...form, id: newHabit.id })
+      }
+      onClose()
+    } catch (error) {
+      console.error('Error saving habit:', error)
+    } finally {
+      setIsSubmitting(false)
     }
-    onClose()
   }
 
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="label">Habit Name</label>
-        <input type="text" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="input" placeholder="e.g., Exercise, Read" required autoFocus />
+        <label className="label">Habit Name *</label>
+        <input type="text" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className={`input ${errors.name ? 'border-red-500' : ''}`} placeholder="e.g., Exercise, Read" autoFocus />
+        {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
       </div>
       <div>
-        <label className="label">Color</label>
+        <label className="label">Color *</label>
         <div className="flex gap-3 flex-wrap">{colors.map(c => <button type="button" key={c} onClick={() => setForm({...form, color: c})} className={`w-10 h-10 rounded-full transition-transform touch-target ${form.color === c ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : ''}`} style={{ backgroundColor: c }} />)}</div>
       </div>
       <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
@@ -1034,13 +1081,14 @@ function HabitForm({ onClose }) {
       </div>
       {form.reminder && (
         <div>
-          <label className="label">Reminder Time</label>
-          <input type="time" value={form.reminderTime} onChange={(e) => setForm({...form, reminderTime: e.target.value})} className="input" />
+          <label className="label">Reminder Time *</label>
+          <input type="time" value={form.reminderTime} onChange={(e) => setForm({...form, reminderTime: e.target.value})} className={`input ${errors.reminderTime ? 'border-red-500' : ''}`} />
+          {errors.reminderTime && <p className="text-red-500 text-xs mt-1">{errors.reminderTime}</p>}
         </div>
       )}
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
-        <button type="submit" className="btn btn-primary flex-1">Create</button>
+        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
+        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Creating...' : 'Create'}</button>
       </div>
     </form>
   )
@@ -1111,27 +1159,50 @@ function NotesView() {
 
 function NoteForm({ note, onClose }) {
   const [form, setForm] = useState({ title: note?.title || '', content: note?.content || '' })
+  const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const validate = () => {
+    const newErrors = {}
+    if (!form.title.trim()) newErrors.title = 'Title is required'
+    if (!form.content.trim()) newErrors.content = 'Content is required'
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const submit = async (e) => {
     e.preventDefault()
-    if (note) await api.notes.update(note.id, form)
-    else await api.notes.create(form)
-    onClose()
+    
+    if (!validate()) return
+    
+    setIsSubmitting(true)
+    
+    try {
+      if (note) await api.notes.update(note.id, form)
+      else await api.notes.create(form)
+      onClose()
+    } catch (error) {
+      console.error('Error saving note:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="label">Title</label>
-        <input type="text" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} className="input" placeholder="Note title" autoFocus />
+        <label className="label">Title *</label>
+        <input type="text" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} className={`input ${errors.title ? 'border-red-500' : ''}`} placeholder="Note title" autoFocus />
+        {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
       </div>
       <div>
-        <label className="label">Content</label>
-        <textarea value={form.content} onChange={(e) => setForm({...form, content: e.target.value})} className="input min-h-[150px] resize-none" placeholder="Write your note..." />
+        <label className="label">Content *</label>
+        <textarea value={form.content} onChange={(e) => setForm({...form, content: e.target.value})} className={`input min-h-[150px] resize-none ${errors.content ? 'border-red-500' : ''}`} placeholder="Write your note..." />
+        {errors.content && <p className="text-red-500 text-xs mt-1">{errors.content}</p>}
       </div>
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
-        <button type="submit" className="btn btn-primary flex-1">{note ? 'Save' : 'Create'}</button>
+        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
+        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (note ? 'Save' : 'Create')}</button>
       </div>
     </form>
   )
