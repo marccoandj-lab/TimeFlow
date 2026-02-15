@@ -186,6 +186,30 @@ cron.schedule('* * * * *', () => {
   processScheduledNotifications();
 });
 
+app.get('/api/notifications/status/:userId', async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    const userDoc = await firestore.collection('users').doc(userId).get();
+    
+    if (!userDoc.exists) {
+      return res.json({ registered: false, reason: 'User not found in Firestore' });
+    }
+    
+    const userData = userDoc.data();
+    
+    res.json({
+      registered: !!userData.fcmToken,
+      hasToken: !!userData.fcmToken,
+      tokenPreview: userData.fcmToken ? userData.fcmToken.substring(0, 30) + '...' : null,
+      notificationEnabled: userData.notificationEnabled,
+      updatedAt: userData.updatedAt
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/notifications/register', async (req, res) => {
   const { userId, fcmToken } = req.body;
   

@@ -77,6 +77,8 @@ export function NotificationProvider({ children }) {
           })
         })
         console.log('FCM token registered:', token.substring(0, 20) + '...')
+        console.log('User ID:', auth.currentUser.uid)
+        console.log('Check status at: /api/notifications/status/' + auth.currentUser.uid)
       }
     } catch (e) {
       console.error('FCM token registration error:', e)
