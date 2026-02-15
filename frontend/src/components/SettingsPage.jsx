@@ -8,18 +8,43 @@ import {
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 
+const storage = {
+  get: (key, def = null) => {
+    try {
+      const item = localStorage.getItem(`timeflow_${key}`)
+      return item ? JSON.parse(item) : def
+    } catch { return def }
+  },
+  set: (key, value) => {
+    try { localStorage.setItem(`timeflow_${key}`, JSON.stringify(value)) } catch {}
+  },
+  remove: (key) => {
+    try { localStorage.removeItem(`timeflow_${key}`) } catch {}
+  },
+  clear: () => {
+    try {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('timeflow_')) localStorage.removeItem(key)
+      })
+    } catch {}
+  }
+}
+
 export default function SettingsPage() {
   const { currentUser, userData, updateUserProfile } = useAuth()
-  const [settings, setSettings] = useState({
-    darkMode: false,
-    notifications: true,
-    soundEffects: true,
-    pomodoroDuration: 25,
-    shortBreakDuration: 5,
-    longBreakDuration: 15,
-    dailyReminder: true,
-    reminderTime: '09:00',
-    language: 'en'
+  const [settings, setSettings] = useState(() => {
+    const saved = storage.get('appSettings')
+    return saved || {
+      darkMode: false,
+      notifications: true,
+      soundEffects: true,
+      pomodoroDuration: 25,
+      shortBreakDuration: 5,
+      longBreakDuration: 15,
+      dailyReminder: true,
+      reminderTime: '09:00',
+      language: 'en'
+    }
   })
   const [loading, setLoading] = useState(false)
 
@@ -32,6 +57,7 @@ export default function SettingsPage() {
   async function updateSettings(key, value) {
     const newSettings = { ...settings, [key]: value }
     setSettings(newSettings)
+    storage.set('appSettings', newSettings)
     
     setLoading(true)
     try {
@@ -49,7 +75,10 @@ export default function SettingsPage() {
         displayName: userData?.displayName,
         exportedAt: new Date().toISOString()
       },
-      settings: settings
+      settings: settings,
+      tasks: storage.get('tasks', []),
+      habits: storage.get('habits', []),
+      notes: storage.get('notes', [])
     }
     
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -63,12 +92,8 @@ export default function SettingsPage() {
 
   async function clearAllData() {
     if (confirm('Are you sure you want to clear all your data? This cannot be undone.')) {
-      try {
-        await fetch('/api/tasks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clearAll: true }) })
-        alert('All data cleared successfully')
-      } catch (err) {
-        console.error('Failed to clear data')
-      }
+      storage.clear()
+      window.location.reload()
     }
   }
 

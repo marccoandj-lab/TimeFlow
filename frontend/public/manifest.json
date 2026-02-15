@@ -1,5 +1,5 @@
 {
-  "name": "TimeFlow",
+  "name": "TimeFlow - Smart Time Organizer",
   "short_name": "TimeFlow",
   "description": "Smart Time Organizer with Tasks, Habits, and Focus Timer",
   "start_url": "/",
@@ -7,19 +7,36 @@
   "background_color": "#ffffff",
   "theme_color": "#6366f1",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/icon-192x192.png",
+      "src": "/icon-192x192.svg",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/svg+xml",
+      "purpose": "any"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "/icon-192x192.svg",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ],
-  "permissions": ["notifications", "background-sync"]
+  "categories": ["productivity", "utilities"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Add Task",
+      "short_name": "Task",
+      "description": "Create a new task",
+      "url": "/?view=tasks&action=new"
+    },
+    {
+      "name": "Focus Timer",
+      "short_name": "Focus",
+      "description": "Start focus session",
+      "url": "/?view=timer"
+    }
+  ]
 }

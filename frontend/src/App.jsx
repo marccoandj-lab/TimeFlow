@@ -1,11 +1,11 @@
-import { useState, useEffect, createContext, useContext, useRef } from 'react'
+import { useState, useEffect, createContext, useContext, useRef, useCallback } from 'react'
 import { format, isToday, isTomorrow, isPast, parseISO, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek } from 'date-fns'
 import { 
   LayoutDashboard, CheckSquare, Calendar, Clock, Target, StickyNote, Moon, Sun,
   Plus, Trash2, Edit3, Search, Play, Pause, RotateCcw,
   CheckCircle2, Circle, AlertTriangle, Timer, X, Menu, Sparkles, TrendingUp,
   ChevronLeft, ChevronRight, Info, Zap, Coffee, Brain, Dumbbell, BookOpen, Home,
-  Settings, User, LogOut, ChevronDown, Bell, BellOff
+  Settings, User, LogOut, ChevronDown, Bell, BellOff, Download
 } from 'lucide-react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext'
@@ -16,31 +16,133 @@ import SettingsPage from './components/SettingsPage'
 const API_BASE = '/api'
 const ThemeContext = createContext()
 const useTheme = () => useContext(ThemeContext)
+const PWAContext = createContext()
+export const usePWA = () => useContext(PWAContext)
+
+const storage = {
+  get: (key, def = null) => {
+    try {
+      const item = localStorage.getItem(`timeflow_${key}`)
+      return item ? JSON.parse(item) : def
+    } catch { return def }
+  },
+  set: (key, value) => {
+    try { localStorage.setItem(`timeflow_${key}`, JSON.stringify(value)) } catch {}
+  },
+  remove: (key) => {
+    try { localStorage.removeItem(`timeflow_${key}`) } catch {}
+  }
+}
+
+const createApi = (type, storageKey) => ({
+  list: async (params = {}) => {
+    const cached = storage.get(storageKey, [])
+    try {
+      const res = await fetch(`${API_BASE}/${type}?${new URLSearchParams(params)}`)
+      const data = await res.json()
+      storage.set(storageKey, data)
+      return data
+    } catch { return cached }
+  },
+  create: async (data) => {
+    const cached = storage.get(storageKey, [])
+    try {
+      const res = await fetch(`${API_BASE}/${type}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+      const item = await res.json()
+      storage.set(storageKey, [...cached, item])
+      return item
+    } catch {
+      const item = { ...data, id: `local_${Date.now()}`, createdAt: new Date().toISOString() }
+      storage.set(storageKey, [...cached, item])
+      return item
+    }
+  },
+  update: async (id, data) => {
+    const cached = storage.get(storageKey, [])
+    try {
+      const res = await fetch(`${API_BASE}/${type}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+      const item = await res.json()
+      storage.set(storageKey, cached.map(i => i.id === id ? item : i))
+      return item
+    } catch {
+      const item = cached.find(i => i.id === id)
+      const updated = { ...item, ...data }
+      storage.set(storageKey, cached.map(i => i.id === id ? updated : i))
+      return updated
+    }
+  },
+  delete: async (id) => {
+    const cached = storage.get(storageKey, [])
+    try {
+      await fetch(`${API_BASE}/${type}/${id}`, { method: 'DELETE' })
+    } catch {}
+    storage.set(storageKey, cached.filter(i => i.id !== id))
+  }
+})
 
 const api = {
-  tasks: {
-    list: (params) => fetch(`${API_BASE}/tasks?${new URLSearchParams(params)}`).then(r => r.json()),
-    create: (data) => fetch(`${API_BASE}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    update: (id, data) => fetch(`${API_BASE}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    delete: (id) => fetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE' })
-  },
+  tasks: createApi('tasks', 'tasks'),
   categories: {
-    list: () => fetch(`${API_BASE}/categories`).then(r => r.json())
+    list: async () => {
+      const cached = storage.get('categories', [])
+      try {
+        const res = await fetch(`${API_BASE}/categories`)
+        const data = await res.json()
+        storage.set('categories', data)
+        return data
+      } catch { return cached.length ? cached : [
+        { id: '1', name: 'Work', color: '#ef4444' },
+        { id: '2', name: 'Personal', color: '#10b981' },
+        { id: '3', name: 'Health', color: '#f59e0b' },
+        { id: '4', name: 'Learning', color: '#8b5cf6' },
+        { id: '5', name: 'Shopping', color: '#ec4899' }
+      ]}
+    }
   },
   habits: {
-    list: () => fetch(`${API_BASE}/habits`).then(r => r.json()),
-    create: (data) => fetch(`${API_BASE}/habits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    update: (id, data) => fetch(`${API_BASE}/habits/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    delete: (id) => fetch(`${API_BASE}/habits/${id}`, { method: 'DELETE' }),
-    complete: (id) => fetch(`${API_BASE}/habits/${id}/complete`, { method: 'POST' }).then(r => r.json())
+    ...createApi('habits', 'habits'),
+    complete: async (id) => {
+      const cached = storage.get('habits', [])
+      try {
+        const res = await fetch(`${API_BASE}/habits/${id}/complete`, { method: 'POST' })
+        const item = await res.json()
+        storage.set('habits', cached.map(i => i.id === id ? item : i))
+        return item
+      } catch {
+        const item = cached.find(i => i.id === id)
+        const today = new Date().toISOString().split('T')[0]
+        const lastCompleted = item?.lastCompleted?.split('T')[0]
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+        let streak = item?.streak || 0
+        if (lastCompleted === yesterday) streak++
+        else if (lastCompleted !== today) streak = 1
+        const updated = { ...item, streak, lastCompleted: new Date().toISOString() }
+        storage.set('habits', cached.map(i => i.id === id ? updated : i))
+        return updated
+      }
+    }
   },
-  notes: {
-    list: (params) => fetch(`${API_BASE}/notes?${new URLSearchParams(params)}`).then(r => r.json()),
-    create: (data) => fetch(`${API_BASE}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    update: (id, data) => fetch(`${API_BASE}/notes/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-    delete: (id) => fetch(`${API_BASE}/notes/${id}`, { method: 'DELETE' })
-  },
-  stats: () => fetch(`${API_BASE}/stats`).then(r => r.json())
+  notes: createApi('notes', 'notes'),
+  stats: async () => {
+    const tasks = storage.get('tasks', [])
+    const habits = storage.get('habits', [])
+    const today = new Date().toISOString().split('T')[0]
+    const totalTasks = tasks.length
+    const completedTasks = tasks.filter(t => t.status === 'completed').length
+    const overdueTasks = tasks.filter(t => t.status !== 'completed' && t.dueDate && t.dueDate < today).length
+    try {
+      const res = await fetch(`${API_BASE}/stats`)
+      return await res.json()
+    } catch {
+      return {
+        totalTasks,
+        completedTasks,
+        overdueTasks,
+        completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+        habitsCompletedToday: habits.filter(h => h.lastCompleted?.startsWith(today)).length
+      }
+    }
+  }
 }
 
 const priorityColors = { high: 'text-red-500 bg-red-50 dark:bg-red-950/30', medium: 'text-amber-500 bg-amber-50 dark:bg-amber-950/30', low: 'text-slate-400 bg-slate-50 dark:bg-slate-950/30' }
@@ -282,9 +384,20 @@ function StatCard({ icon: Icon, label, value, color, trend }) {
 }
 
 function Dashboard() {
-  const [stats, setStats] = useState(null)
-  const [tasks, setTasks] = useState([])
-  const [habits, setHabits] = useState([])
+  const [stats, setStats] = useState(() => {
+    const tasks = storage.get('tasks', [])
+    const habits = storage.get('habits', [])
+    const today = new Date().toISOString().split('T')[0]
+    return {
+      totalTasks: tasks.length,
+      completedTasks: tasks.filter(t => t.status === 'completed').length,
+      overdueTasks: tasks.filter(t => t.status !== 'completed' && t.dueDate && t.dueDate < today).length,
+      completionRate: tasks.length > 0 ? Math.round((tasks.filter(t => t.status === 'completed').length / tasks.length) * 100) : 0,
+      habitsCompletedToday: habits.filter(h => h.lastCompleted?.startsWith(today)).length
+    }
+  })
+  const [tasks, setTasks] = useState(() => storage.get('tasks', []).filter(t => t.status !== 'completed'))
+  const [habits, setHabits] = useState(() => storage.get('habits', []))
 
   useEffect(() => {
     Promise.all([api.stats(), api.tasks.list({ status: 'pending' }), api.habits.list()])
@@ -294,12 +407,6 @@ function Dashboard() {
         setHabits(habitsData)
       })
   }, [])
-
-  if (!stats) return (
-    <div className="flex items-center justify-center h-40">
-      <div className="animate-spin w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full" />
-    </div>
-  )
 
   const upcomingTasks = tasks.filter(t => t.dueDate && !isPast(parseISO(t.dueDate))).slice(0, 5)
   const overdueTasks = tasks.filter(t => t.dueDate && isPast(parseISO(t.dueDate)) && !isToday(parseISO(t.dueDate)))
@@ -394,8 +501,8 @@ function Dashboard() {
 }
 
 function TasksView() {
-  const [tasks, setTasks] = useState([])
-  const [categories, setCategories] = useState([])
+  const [tasks, setTasks] = useState(() => storage.get('tasks', []))
+  const [categories, setCategories] = useState(() => storage.get('categories', []))
   const [showModal, setShowModal] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [search, setSearch] = useState('')
@@ -574,7 +681,7 @@ function TaskForm({ task, categories, onClose }) {
 
 function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [tasks, setTasks] = useState([])
+  const [tasks, setTasks] = useState(() => storage.get('tasks', []))
   const [selectedDate, setSelectedDate] = useState(null)
 
   useEffect(() => { api.tasks.list({}).then(setTasks) }, [])
@@ -650,7 +757,12 @@ function PomodoroTimer() {
   const [seconds, setSeconds] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
   const [mode, setMode] = useState('focus')
-  const [sessions, setSessions] = useState(0)
+  const [sessions, setSessions] = useState(() => {
+    const today = new Date().toISOString().split('T')[0]
+    const saved = storage.get('timerSessions')
+    if (saved?.date === today) return saved.count
+    return 0
+  })
   const [customMinutes, setCustomMinutes] = useState(25)
 
   const presets = [
@@ -681,6 +793,11 @@ function PomodoroTimer() {
     }
     return () => clearInterval(interval)
   }, [isRunning, minutes, seconds, mode])
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0]
+    storage.set('timerSessions', { date: today, count: sessions })
+  }, [sessions])
 
   const selectPreset = (preset) => {
     setMinutes(preset.mins)
@@ -776,7 +893,7 @@ function PomodoroTimer() {
 }
 
 function HabitsView() {
-  const [habits, setHabits] = useState([])
+  const [habits, setHabits] = useState(() => storage.get('habits', []))
   const [showModal, setShowModal] = useState(false)
   const { scheduleHabitNotification } = useNotifications()
 
@@ -886,7 +1003,7 @@ function HabitForm({ onClose }) {
 }
 
 function NotesView() {
-  const [notes, setNotes] = useState([])
+  const [notes, setNotes] = useState(() => storage.get('notes', []))
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
 
@@ -961,12 +1078,41 @@ function NoteForm({ note, onClose }) {
   )
 }
 
+function InstallPrompt({ onInstall, onDismiss }) {
+  return (
+    <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 z-50 animate-slide-up">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+          <Download className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-sm">Install TimeFlow</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Add to home screen for quick access</p>
+        </div>
+        <button onClick={onDismiss} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+          <X className="w-4 h-4 text-gray-400" />
+        </button>
+      </div>
+      <div className="flex gap-2 mt-3">
+        <button onClick={onDismiss} className="btn btn-secondary flex-1 text-sm py-2">Later</button>
+        <button onClick={onInstall} className="btn btn-primary flex-1 text-sm py-2">Install</button>
+      </div>
+    </div>
+  )
+}
+
 function AppContent() {
   const { currentUser, logout, loading, error } = useAuth()
-  const [dark, setDark] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const [dark, setDark] = useState(() => {
+    const saved = storage.get('theme')
+    if (saved !== null) return saved
+    return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
   const [activeView, setActiveView] = useState('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false)
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -977,7 +1123,33 @@ function AppContent() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
+    storage.set('theme', dark)
   }, [dark])
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      const dismissed = storage.get('installPromptDismissed')
+      if (!dismissed) setShowInstallPrompt(true)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    setDeferredPrompt(null)
+    setShowInstallPrompt(false)
+    if (outcome === 'dismissed') storage.set('installPromptDismissed', true)
+  }
+
+  const handleDismissInstall = () => {
+    setShowInstallPrompt(false)
+    storage.set('installPromptDismissed', true)
+  }
 
   if (loading) {
     return (
@@ -1024,33 +1196,36 @@ function AppContent() {
   }
 
   return (
-    <ThemeContext.Provider value={{ dark, setDark }}>
-      <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
-        {!isMobile && (
-          <Sidebar activeView={activeView} setActiveView={setActiveView} collapsed={sidebarCollapsed} />
-        )}
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          {isMobile && (
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-bold">TimeFlow</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setDark(!dark)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl touch-target">
-                  {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
-                </button>
-                <UserMenu onNavigate={setActiveView} onLogout={handleLogout} />
-              </div>
-            </div>
+    <PWAContext.Provider value={{ deferredPrompt, showInstallPrompt }}>
+      <ThemeContext.Provider value={{ dark, setDark }}>
+        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
+          {!isMobile && (
+            <Sidebar activeView={activeView} setActiveView={setActiveView} collapsed={sidebarCollapsed} />
           )}
-          <View />
-        </main>
-        {isMobile && <MobileNav activeView={activeView} setActiveView={setActiveView} />}
-      </div>
-    </ThemeContext.Provider>
+          <main className="flex-1 p-4 md:p-6 overflow-auto">
+            {isMobile && (
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="font-bold">TimeFlow</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setDark(!dark)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl touch-target">
+                    {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
+                  </button>
+                  <UserMenu onNavigate={setActiveView} onLogout={handleLogout} />
+                </div>
+              </div>
+            )}
+            <View />
+          </main>
+          {isMobile && <MobileNav activeView={activeView} setActiveView={setActiveView} />}
+          {showInstallPrompt && <InstallPrompt onInstall={handleInstall} onDismiss={handleDismissInstall} />}
+        </div>
+      </ThemeContext.Provider>
+    </PWAContext.Provider>
   )
 }
 
