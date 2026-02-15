@@ -52,6 +52,12 @@ export function NotificationProvider({ children }) {
     }
   }, [auth?.currentUser, permission, messaging])
 
+  useEffect(() => {
+    if (fcmToken && auth?.currentUser) {
+      console.log('FCM token available, ensuring registered with backend')
+    }
+  }, [fcmToken])
+
   const registerFCMToken = async () => {
     if (!messaging || !auth?.currentUser) return
     
@@ -115,12 +121,16 @@ export function NotificationProvider({ children }) {
       }
     }
 
+    if (!fcmToken) {
+      console.warn('No FCM token - notifications may not work when app is closed')
+      await registerFCMToken()
+    }
+
     const dueDate = new Date(task.dueDate + 'T' + (task.dueTime || '09:00'))
     const now = new Date()
 
     console.log('Scheduling notifications for task:', task.title)
     console.log('Due date:', dueDate.toISOString())
-    console.log('Now:', now.toISOString())
 
     const notificationTimes = [
       { minutes: 60, label: '1 hour before' },
@@ -166,7 +176,7 @@ export function NotificationProvider({ children }) {
       scheduled.push({ id: notificationId, minutes })
     }
 
-    if (auth?.currentUser) {
+    if (auth?.currentUser && fcmToken) {
       try {
         for (const { minutes, label } of notificationTimes) {
           const notifyTime = new Date(dueDate.getTime() - minutes * 60 * 1000)
@@ -186,11 +196,11 @@ export function NotificationProvider({ children }) {
           })
           
           if (response.ok) {
-            console.log(`Scheduled backend notification for ${label}`)
+            console.log(`Scheduled FCM push notification for ${label}`)
           }
         }
       } catch (error) {
-        console.error('Error scheduling via backend:', error)
+        console.error('Error scheduling FCM notification:', error)
       }
     }
 

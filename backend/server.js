@@ -50,31 +50,51 @@ async function sendPushNotification(fcmToken, title, body, data = {}) {
   if (!fcmToken) return false;
   
   try {
-    await messaging.send({
+    const messageId = await messaging.send({
       token: fcmToken,
       notification: { title, body },
-      data: { ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
+      data: { 
+        ...data, 
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+        url: data.url || '/'
+      },
       android: {
         priority: 'high',
         notification: {
           sound: 'default',
           priority: 'high',
-          defaultVibrateTimings: true
+          defaultVibrateTimings: true,
+          channelId: 'timeflow-notifications'
         }
       },
       apns: {
         payload: {
           aps: {
             sound: 'default',
-            badge: 1
+            badge: 1,
+            contentAvailable: true
           }
+        }
+      },
+      webpush: {
+        notification: {
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          requireInteraction: true,
+          vibrate: [200, 100, 200]
+        },
+        fcmOptions: {
+          link: data.url || '/'
         }
       }
     });
-    console.log(`Push sent: ${title}`);
+    console.log(`✅ Push sent (messageId: ${messageId}): ${title}`);
     return true;
   } catch (error) {
-    console.error('Push error:', error.message);
+    console.error('❌ Push error:', error.message);
+    if (error.code === 'messaging/registration-token-not-registered') {
+      console.log('Token not registered, should be removed');
+    }
     return false;
   }
 }
@@ -86,14 +106,19 @@ async function processScheduledNotifications() {
     const usersSnapshot = await firestore.collection('users').get();
     
     if (usersSnapshot.empty) {
+      console.log('No users found for notification processing');
       return;
     }
+    
+    let processedCount = 0;
+    let sentCount = 0;
     
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
       const userId = userDoc.id;
       
       if (!userData.fcmToken) {
+        console.log(`User ${userId} has no FCM token, skipping`);
         continue;
       }
       
@@ -113,19 +138,21 @@ async function processScheduledNotifications() {
         
         for (const notifDoc of notificationsSnapshot.docs) {
           const notif = notifDoc.data();
+          processedCount++;
           
           const scheduledTime = new Date(notif.scheduledFor).getTime();
           if (scheduledTime > nowTime) {
+            console.log(`Notification "${notif.title}" scheduled for ${notif.scheduledFor} - not yet due`);
             continue;
           }
           
-          console.log(`Sending notification: ${notif.title} - ${notif.body}`);
+          console.log(`Sending push notification: ${notif.title} - ${notif.body} to user ${userId}`);
           
           const sent = await sendPushNotification(
             userData.fcmToken,
             notif.title,
             notif.body,
-            { type: notif.type, id: notif.relatedId || '' }
+            { type: notif.type, id: notif.relatedId || '', tag: notifDoc.id }
           );
           
           if (sent) {
@@ -133,12 +160,19 @@ async function processScheduledNotifications() {
               status: 'sent', 
               sentAt: now.toISOString() 
             });
-            console.log(`Notification sent and marked as sent`);
+            sentCount++;
+            console.log(`✅ Notification sent and marked as sent`);
+          } else {
+            console.log(`❌ Failed to send notification ${notifDoc.id}`);
           }
         }
       } catch (userError) {
         console.error(`Error for user ${userId}:`, userError.message);
       }
+    }
+    
+    if (processedCount > 0) {
+      console.log(`Processed ${processedCount} notifications, sent ${sentCount}`);
     }
   } catch (error) {
     if (error.code !== 5) {
@@ -147,7 +181,10 @@ async function processScheduledNotifications() {
   }
 }
 
-cron.schedule('* * * * *', processScheduledNotifications);
+cron.schedule('* * * * *', () => {
+  console.log(`[${new Date().toISOString()}] Running notification check...`);
+  processScheduledNotifications();
+});
 
 app.post('/api/notifications/register', async (req, res) => {
   const { userId, fcmToken } = req.body;
@@ -179,6 +216,39 @@ app.post('/api/notifications/test', async (req, res) => {
   );
   
   res.json({ success: result });
+});
+
+app.post('/api/notifications/test-user/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { title, body } = req.body;
+  
+  try {
+    const userDoc = await firestore.collection('users').doc(userId).get();
+    
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userData = userDoc.data();
+    
+    if (!userData.fcmToken) {
+      return res.status(400).json({ error: 'User has no FCM token registered' });
+    }
+    
+    console.log(`Testing notification for user ${userId}`);
+    console.log(`FCM Token: ${userData.fcmToken.substring(0, 30)}...`);
+    
+    const result = await sendPushNotification(
+      userData.fcmToken,
+      title || '🧪 Test Notification',
+      body || 'This is a test from TimeFlow backend!'
+    );
+    
+    res.json({ success: result, hasToken: true });
+  } catch (error) {
+    console.error('Test notification error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.post('/api/notifications/schedule', async (req, res) => {
