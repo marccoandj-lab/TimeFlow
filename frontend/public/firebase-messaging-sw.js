@@ -1,7 +1,7 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js')
 
-const CACHE_NAME = 'timeflow-v4'
+const CACHE_NAME = 'timeflow-v5'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -22,21 +22,21 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig)
 const messaging = firebase.messaging()
 
-console.log('[SW] Service Worker loaded - v3')
+console.log('[SW] Service Worker loaded - v5')
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing...')
+  console.log('[SW] Installing v5...')
+  self.skipWaiting()
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[SW] Caching static assets')
       return cache.addAll(STATIC_ASSETS)
     })
   )
-  self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating...')
+  console.log('[SW] Activating v5...')
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -51,67 +51,71 @@ self.addEventListener('activate', (event) => {
   console.log('[SW] Activated and claimed clients')
 })
 
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push event received:', event)
   
-  const url = new URL(event.request.url)
-  
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const responseClone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone)
-          })
-          return response
-        })
-        .catch(() => caches.match(event.request))
-    )
-    return
+  let data = {}
+  if (event.data) {
+    try {
+      data = event.data.json()
+      console.log('[SW] Push data:', data)
+    } catch (e) {
+      data = { notification: { title: 'TimeFlow', body: event.data.text() } }
+    }
   }
   
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request)
-        .then((response) => {
-          if (response.status === 200) {
-            const responseClone = response.clone()
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone)
-            })
-          }
-          return response
-        })
-        .catch(() => cached)
-      
-      return cached || fetchPromise
-    })
+  const title = data.notification?.title || data.data?.title || 'TimeFlow'
+  const body = data.notification?.body || data.data?.body || 'You have a reminder!'
+  
+  console.log('[SW] Showing notification:', title, body)
+  
+  const options = {
+    body: body,
+    icon: '/icon-192x192.png',
+    badge: '/icon-192x192.png',
+    tag: data.data?.tag || 'timeflow-push',
+    data: data.data || { url: '/' },
+    requireInteraction: true,
+    vibrate: [200, 100, 200, 100, 200],
+    actions: [
+      { action: 'open', title: 'Open' },
+      { action: 'close', title: 'Dismiss' }
+    ]
+  }
+  
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+      .then(() => console.log('[SW] Notification shown successfully'))
+      .catch(err => console.error('[SW] Notification show error:', err))
   )
 })
 
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Background FCM message:', payload)
   
-  const notificationTitle = payload.data?.title || payload.notification?.title || 'TimeFlow'
-  const notificationBody = payload.data?.body || payload.notification?.body || 'You have a reminder!'
+  const notificationTitle = payload.notification?.title || payload.data?.title || 'TimeFlow'
+  const notificationBody = payload.notification?.body || payload.data?.body || 'You have a reminder!'
+  
+  console.log('[SW] FCM Title:', notificationTitle)
+  console.log('[SW] FCM Body:', notificationBody)
   
   const notificationOptions = {
     body: notificationBody,
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
-    tag: payload.data?.tag || 'timeflow-bg',
-    data: payload.data || {},
+    tag: payload.data?.tag || 'timeflow-fcm',
+    data: payload.data || { url: '/' },
     requireInteraction: true,
-    vibrate: [200, 100, 200]
+    vibrate: [200, 100, 200, 100, 200]
   }
 
   self.registration.showNotification(notificationTitle, notificationOptions)
-  console.log('[SW] Notification shown from background message')
+    .then(() => console.log('[SW] FCM Notification shown'))
+    .catch(err => console.error('[SW] FCM Notification error:', err))
 })
 
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked')
+  console.log('[SW] Notification clicked:', event.notification.tag)
   event.notification.close()
   
   const urlToOpen = event.notification.data?.url || '/'
@@ -119,12 +123,15 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
+        console.log('[SW] Found clients:', clientList.length)
         for (const client of clientList) {
           if (client.url.includes(self.location.origin) && 'focus' in client) {
+            console.log('[SW] Focusing existing client')
             return client.focus()
           }
         }
         if (self.clients.openWindow) {
+          console.log('[SW] Opening new window:', urlToOpen)
           return self.clients.openWindow(urlToOpen)
         }
       })

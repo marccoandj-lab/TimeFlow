@@ -292,6 +292,92 @@ cron.schedule('0 * * * *', async () => {
   }
 });
 
+app.get('/api/notifications/test-direct/:userId', async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    const userDoc = await firestore.collection('users').doc(userId).get();
+    
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userData = userDoc.data();
+    
+    if (!userData.fcmToken) {
+      return res.status(400).json({ error: 'User has no FCM token registered' });
+    }
+    
+    console.log(`\n🎯 DIRECT TEST for user ${userId}`);
+    console.log(`📱 Token: ${userData.fcmToken}`);
+    
+    const message = {
+      token: userData.fcmToken,
+      notification: {
+        title: '🔔 DIRECT TEST',
+        body: 'This is a direct test notification!'
+      },
+      data: {
+        title: '🔔 DIRECT TEST',
+        body: 'This is a direct test notification!',
+        url: '/',
+        click_action: 'FLUTTER_NOTIFICATION_CLICK'
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          title: '🔔 DIRECT TEST',
+          body: 'This is a direct test notification!',
+          sound: 'default',
+          priority: 'high',
+          channelId: 'timeflow-notifications',
+          visibility: 'public'
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            alert: {
+              title: '🔔 DIRECT TEST',
+              body: 'This is a direct test notification!'
+            },
+            sound: 'default',
+            badge: 1
+          }
+        }
+      },
+      webpush: {
+        headers: {
+          Urgency: 'high',
+          TTL: '60'
+        },
+        notification: {
+          title: '🔔 DIRECT TEST',
+          body: 'This is a direct test notification!',
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          tag: 'test-direct',
+          requireInteraction: true,
+          vibrate: [200, 100, 200, 100, 200]
+        }
+      }
+    };
+    
+    const messageId = await messaging.send(message);
+    console.log(`✅ Sent! MessageId: ${messageId}\n`);
+    
+    res.json({ 
+      success: true, 
+      messageId,
+      token: userData.fcmToken.substring(0, 30) + '...',
+      sentAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Direct test error:', error);
+    res.status(500).json({ error: error.message, code: error.code });
+  }
+});
+
 app.get('/api/notifications/cleanup/:userId', async (req, res) => {
   const { userId } = req.params;
   
