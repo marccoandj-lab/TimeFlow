@@ -268,8 +268,8 @@ function Modal({ isOpen, onClose, title, children }) {
   
   if (isMobile) {
     return (
-      <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+      <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button 
             onClick={onClose} 
@@ -278,7 +278,14 @@ function Modal({ isOpen, onClose, title, children }) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 60px)', WebkitOverflowScrolling: 'touch' }}>
+        <div 
+          className="flex-1 overflow-y-auto p-4" 
+          style={{ 
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+            touchAction: 'pan-y'
+          }}
+        >
           {children}
         </div>
       </div>
@@ -889,7 +896,7 @@ function TaskForm({ task, categories, onClose }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5">
+    <form onSubmit={submit} className="space-y-5" style={{ touchAction: 'pan-y' }}>
       <div>
         <label className="label">Task Title *</label>
         <input 
@@ -1373,7 +1380,7 @@ function HabitForm({ habit, onClose }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5">
+    <form onSubmit={submit} className="space-y-5" style={{ touchAction: 'pan-y' }}>
       <div>
         <label className="label">Habit Name *</label>
         <input 

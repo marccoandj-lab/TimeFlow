@@ -36,7 +36,7 @@
     @apply bg-white/60 dark:bg-slate-800/40 backdrop-blur-2xl rounded-3xl border border-white/20 dark:border-slate-700/30 shadow-xl shadow-slate-200/50 dark:shadow-none;
   }
   .input {
-    @apply w-full px-4 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all text-base placeholder:text-slate-400;
+    @apply w-full px-4 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all text-base placeholder:text-slate-400;
   }
   .label {
     @apply block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2;
@@ -58,6 +58,9 @@
   }
   .glow-sm {
     box-shadow: 0 0 20px -5px rgba(139, 92, 246, 0.3);
+  }
+  .form-group {
+    @apply touch-action-pan-y;
   }
 }
 
@@ -195,6 +198,11 @@
 @media (max-width: 640px) {
   input, select, textarea {
     font-size: 16px !important;
+    touch-action: pan-y;
+  }
+  
+  .input {
+    touch-action: pan-y;
   }
 }
 
