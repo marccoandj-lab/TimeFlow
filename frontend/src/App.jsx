@@ -19,6 +19,81 @@ const useTheme = () => useContext(ThemeContext)
 const PWAContext = createContext()
 export const usePWA = () => useContext(PWAContext)
 
+const mobileViews = ['dashboard', 'tasks', 'timer', 'habits', 'profile']
+
+function useSwipeNavigation(activeView, setActiveView, isMobile) {
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
+  const touchEndX = useRef(0)
+  const isSwiping = useRef(false)
+
+  const handleTouchStart = useCallback((e) => {
+    if (!isMobile) return
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+    isSwiping.current = true
+  }, [isMobile])
+
+  const handleTouchMove = useCallback((e) => {
+    if (!isMobile || !isSwiping.current) return
+    touchEndX.current = e.touches[0].clientX
+  }, [isMobile])
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isMobile || !isSwiping.current) return
+    isSwiping.current = false
+
+    const diffX = touchStartX.current - touchEndX.current
+    const absDiffX = Math.abs(diffX)
+    const absDiffY = Math.abs(touchStartY.current - (touchEndX.current || touchStartY.current))
+    
+    if (absDiffX > 60 && absDiffX > absDiffY) {
+      const currentIndex = mobileViews.indexOf(activeView)
+      if (diffX > 0 && currentIndex < mobileViews.length - 1) {
+        setActiveView(mobileViews[currentIndex + 1])
+      } else if (diffX < 0 && currentIndex > 0) {
+        setActiveView(mobileViews[currentIndex - 1])
+      }
+    }
+    
+    touchStartX.current = 0
+    touchEndX.current = 0
+  }, [isMobile, activeView, setActiveView])
+
+  return { handleTouchStart, handleTouchMove, handleTouchEnd }
+}
+
+function PageTransition({ children, viewKey, direction }) {
+  const [displayChildren, setDisplayChildren] = useState(children)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const prevKeyRef = useRef(viewKey)
+
+  useEffect(() => {
+    if (prevKeyRef.current !== viewKey) {
+      setIsAnimating(true)
+      const timer = setTimeout(() => {
+        setDisplayChildren(children)
+        setIsAnimating(false)
+      }, 150)
+      prevKeyRef.current = viewKey
+      return () => clearTimeout(timer)
+    } else {
+      setDisplayChildren(children)
+    }
+  }, [children, viewKey])
+
+  const getAnimationClass = () => {
+    if (!isAnimating) return 'animate-fade-in'
+    return direction === 'right' ? 'animate-slide-in-right' : 'animate-slide-in-left'
+  }
+
+  return (
+    <div className={`w-full ${getAnimationClass()}`}>
+      {displayChildren}
+    </div>
+  )
+}
+
 const storage = {
   get: (key, def = null) => {
     try {
@@ -1497,6 +1572,17 @@ function AppContent() {
   }
   const View = views[activeView] || Dashboard
 
+  const prevViewRef = useRef(activeView)
+  const getDirection = () => {
+    const mobileViewOrder = ['dashboard', 'tasks', 'calendar', 'timer', 'habits', 'notes', 'profile', 'settings']
+    const prevIndex = mobileViewOrder.indexOf(prevViewRef.current)
+    const currentIndex = mobileViewOrder.indexOf(activeView)
+    prevViewRef.current = activeView
+    return currentIndex > prevIndex ? 'right' : 'left'
+  }
+
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeNavigation(activeView, setActiveView, isMobile)
+
   const handleLogout = async () => {
     try {
       await logout()
@@ -1508,11 +1594,16 @@ function AppContent() {
   return (
     <PWAContext.Provider value={{ deferredPrompt, showInstallPrompt }}>
       <ThemeContext.Provider value={{ dark, setDark }}>
-        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
+        <div 
+          className="flex min-h-screen bg-slate-50 dark:bg-slate-950"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {!isMobile && (
             <Sidebar activeView={activeView} setActiveView={setActiveView} collapsed={sidebarCollapsed} />
           )}
-          <main className="flex-1 p-4 md:p-6 overflow-auto">
+          <main className="flex-1 p-4 md:p-6 overflow-hidden">
             {isMobile && (
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -1529,7 +1620,11 @@ function AppContent() {
                 </div>
               </div>
             )}
-            <View onNavigate={setActiveView} />
+            <div className="h-full overflow-auto">
+              <PageTransition viewKey={activeView} direction={getDirection()}>
+                <View onNavigate={setActiveView} />
+              </PageTransition>
+            </div>
           </main>
           {isMobile && <MobileNav activeView={activeView} setActiveView={setActiveView} />}
           {showInstallPrompt && <InstallPrompt onInstall={handleInstall} onDismiss={handleDismissInstall} />}
