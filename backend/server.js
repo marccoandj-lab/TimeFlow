@@ -47,24 +47,42 @@ const saveDB = (data) => {
 const db = loadDB();
 
 async function sendPushNotification(fcmToken, title, body, data = {}) {
-  if (!fcmToken) return false;
+  if (!fcmToken) {
+    console.error('❌ No FCM token provided');
+    return false;
+  }
   
   try {
-    const messageId = await messaging.send({
+    const message = {
       token: fcmToken,
+      notification: {
+        title: title,
+        body: body
+      },
       data: { 
-        title,
-        body,
+        title: title,
+        body: body,
         ...data, 
         click_action: 'FLUTTER_NOTIFICATION_CLICK',
         url: data.url || '/'
       },
       android: {
-        priority: 'high'
+        priority: 'high',
+        notification: {
+          title: title,
+          body: body,
+          sound: 'default',
+          priority: 'high',
+          channelId: 'timeflow-notifications'
+        }
       },
       apns: {
         payload: {
           aps: {
+            alert: {
+              title: title,
+              body: body
+            },
             sound: 'default',
             badge: 1,
             contentAvailable: true
@@ -73,16 +91,32 @@ async function sendPushNotification(fcmToken, title, body, data = {}) {
       },
       webpush: {
         headers: {
-          Urgency: 'high'
+          Urgency: 'high',
+          'Content-Type': 'application/json'
+        },
+        notification: {
+          title: title,
+          body: body,
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          tag: data.tag || 'timeflow',
+          requireInteraction: true,
+          vibrate: [200, 100, 200]
         }
       }
-    });
+    };
+    
+    const messageId = await messaging.send(message);
     console.log(`✅ Push sent (messageId: ${messageId}): ${title}`);
+    console.log(`   Body: ${body}`);
+    console.log(`   Token: ${fcmToken.substring(0, 30)}...`);
     return true;
   } catch (error) {
     console.error('❌ Push error:', error.message);
+    console.error('   Error code:', error.code);
+    console.error('   Token:', fcmToken.substring(0, 30) + '...');
     if (error.code === 'messaging/registration-token-not-registered') {
-      console.log('Token not registered, should be removed');
+      console.log('⚠️ Token not registered - should be removed from database');
     }
     return false;
   }
