@@ -611,12 +611,12 @@ function Dashboard({ onNavigate }) {
               >
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg transition-transform group-hover:scale-110"
-                  style={{ backgroundColor: habit.color }}
+                  style={{ backgroundColor: habit.color || '#6366f1' }}
                 >
-                  {habit.name[0].toUpperCase()}
+                  {(habit.name?.[0] || 'H').toUpperCase()}
                 </div>
-                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate w-full text-center">{habit.name}</span>
-                <span className="text-[10px] text-slate-400">{habit.streak}🔥</span>
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate w-full text-center">{habit.name || 'Habit'}</span>
+                <span className="text-[10px] text-slate-400">{habit.streak || 0}🔥</span>
               </button>
             ))}
             {todayHabits.length > 4 && (
