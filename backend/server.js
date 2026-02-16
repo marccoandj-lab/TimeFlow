@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import cron from 'node-cron';
 import admin, { messaging, firestore } from './firebaseAdmin.js';
 
+const FieldValue = admin.firestore.FieldValue;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -119,7 +121,7 @@ async function sendPushNotification(fcmToken, title, body, data = {}, userId = n
       console.log(`🗑️ Removing invalid token for user ${userId}`);
       try {
         await firestore.collection('users').doc(userId).update({
-          fcmToken: firestore.FieldValue.delete(),
+          fcmToken: FieldValue.delete(),
           tokenInvalidatedAt: new Date().toISOString()
         });
       } catch (e) {
