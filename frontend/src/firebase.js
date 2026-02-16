@@ -3,12 +3,12 @@ import { getAuth } from 'firebase/auth'
 import { getFirestore, initializeFirestore, CACHE_SIZE_UNLIMITED } from 'firebase/firestore'
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyBe5OU-FAlkPPUPZFv3T7Due7dSlq1gS2I",
+  authDomain: "timeflow-55487.firebaseapp.com",
+  projectId: "timeflow-55487",
+  storageBucket: "timeflow-55487.firebasestorage.app",
+  messagingSenderId: "596272507645",
+  appId: "1:596272507645:web:c0a3c6060318c75659ac94"
 }
 
 let app = null
@@ -16,13 +16,11 @@ let auth = null
 let db = null
 
 try {
-  if (firebaseConfig.apiKey) {
-    app = initializeApp(firebaseConfig)
-    auth = getAuth(app)
-    db = initializeFirestore(app, {
-      cache: CACHE_SIZE_UNLIMITED
-    })
-  }
+  app = initializeApp(firebaseConfig)
+  auth = getAuth(app)
+  db = initializeFirestore(app, {
+    cache: CACHE_SIZE_UNLIMITED
+  })
 } catch (error) {
   console.error('Firebase initialization error:', error)
 }

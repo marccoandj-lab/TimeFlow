@@ -181,8 +181,6 @@ export function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!isMountedRef.current) return
       
-      console.log('🔐 Auth state changed:', user ? user.uid : 'null')
-      
       setCurrentUser(user)
       setCachedUser(user)
       if (user) {
