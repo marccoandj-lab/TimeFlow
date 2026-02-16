@@ -202,14 +202,15 @@
     max-width: 100% !important;
     width: 100% !important;
     border-radius: 2rem 2rem 0 0 !important;
-    max-height: 90vh !important;
-    overflow: hidden !important;
+    max-height: 92vh !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
   
   .mobile-modal > div:last-child {
-    -webkit-overflow-scrolling: touch !important;
+    flex: 1 !important;
     overflow-y: auto !important;
-    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   
   .mobile-modal input,
