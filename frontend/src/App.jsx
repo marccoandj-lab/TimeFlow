@@ -1233,6 +1233,7 @@ function PomodoroTimer() {
   const [timerSettings, setTimerSettings] = useState(() => getTimerSettings())
   const [minutes, setMinutes] = useState(() => getTimerSettings().pomodoroDuration)
   const [seconds, setSeconds] = useState(0)
+  const [totalSeconds, setTotalSeconds] = useState(() => getTimerSettings().pomodoroDuration * 60)
   const [isRunning, setIsRunning] = useState(false)
   const [mode, setMode] = useState('focus')
   const [sessions, setSessions] = useState(() => {
@@ -1279,6 +1280,7 @@ function PomodoroTimer() {
     saveTimerSetting(settingKey, clampedValue)
     setMinutes(clampedValue)
     setSeconds(0)
+    setTotalSeconds(clampedValue * 60)
   }
 
   useEffect(() => {
@@ -1292,6 +1294,11 @@ function PomodoroTimer() {
     { label: 'Study', mins: timerSettings.studyDuration || 50, icon: BookOpen, desc: 'Extended', color: 'from-blue-500 to-indigo-600' },
     { label: 'Workout', mins: timerSettings.workoutDuration || 30, icon: Dumbbell, desc: 'Exercise', color: 'from-rose-500 to-pink-600' },
   ]
+
+  const startTimer = () => {
+    setTotalSeconds(minutes * 60 + seconds)
+    setIsRunning(true)
+  }
 
   useEffect(() => {
     let interval
@@ -1322,6 +1329,7 @@ function PomodoroTimer() {
   const selectPreset = (preset) => {
     setMinutes(preset.mins)
     setSeconds(0)
+    setTotalSeconds(preset.mins * 60)
     setMode(preset.label.toLowerCase())
     setCustomMinutes(preset.mins)
     setIsRunning(false)
@@ -1331,12 +1339,13 @@ function PomodoroTimer() {
     const duration = getDurationForMode(mode)
     setMinutes(duration)
     setSeconds(0)
+    setTotalSeconds(duration * 60)
     setIsRunning(false)
   }
 
   const progress = () => {
-    const total = getDurationForMode(mode)
-    return 1 - (minutes + seconds / 60) / total
+    const remaining = minutes * 60 + seconds
+    return (totalSeconds - remaining) / totalSeconds
   }
 
   const formatTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
@@ -1408,7 +1417,19 @@ function PomodoroTimer() {
 
         <div className="flex justify-center gap-3 mb-6">
           <button
-            onClick={() => setIsRunning(!isRunning)}
+            onClick={() => {
+              if (isRunning) {
+                setIsRunning(false)
+              } else {
+                if (totalSeconds === 0 || (!isRunning && minutes === 0 && seconds === 0)) {
+                  const duration = getDurationForMode(mode)
+                  setMinutes(duration)
+                  setSeconds(0)
+                  setTotalSeconds(duration * 60)
+                }
+                setIsRunning(true)
+              }
+            }}
             className={`btn ${isRunning ? 'btn-secondary' : 'btn-primary'} px-8 py-3 rounded-2xl text-base font-semibold`}
           >
             {isRunning ? <><Pause className="w-5 h-5" /> Pause</> : <><Play className="w-5 h-5" /> Start</>}
@@ -1465,6 +1486,7 @@ function PomodoroTimer() {
             onClick={() => {
               setMinutes(customMinutes)
               setSeconds(0)
+              setTotalSeconds(customMinutes * 60)
               setIsRunning(false)
             }} 
             className="btn btn-primary ml-auto text-sm font-semibold"
