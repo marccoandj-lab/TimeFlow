@@ -193,29 +193,7 @@
 }
 
 @media (max-width: 640px) {
-  .mobile-modal {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    max-width: 100% !important;
-    width: 100% !important;
-    border-radius: 2rem 2rem 0 0 !important;
-    max-height: 92vh !important;
-    display: flex !important;
-    flex-direction: column !important;
-  }
-  
-  .mobile-modal > div:last-child {
-    flex: 1 !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-  
-  .mobile-modal input,
-  .mobile-modal select,
-  .mobile-modal textarea {
+  input, select, textarea {
     font-size: 16px !important;
   }
 }

@@ -252,8 +252,8 @@ const api = {
 const priorityColors = { high: 'text-red-500 bg-red-50 dark:bg-red-950/30', medium: 'text-amber-500 bg-amber-50 dark:bg-amber-950/30', low: 'text-slate-400 bg-slate-50 dark:bg-slate-950/30' }
 const categoryColors = { Work: '#ef4444', Personal: '#10b981', Health: '#f59e0b', Learning: '#8b5cf6', Shopping: '#ec4899', general: '#6366f1' }
 
-function Modal({ isOpen, onClose, title, children, size = 'md' }) {
-  const modalRef = useRef(null)
+function Modal({ isOpen, onClose, title, children }) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
   
   useEffect(() => {
     if (isOpen) {
@@ -261,38 +261,41 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
     } else {
       document.body.style.overflow = ''
     }
-    return () => { 
-      document.body.style.overflow = ''
-    }
+    return () => { document.body.style.overflow = '' }
   }, [isOpen])
   
   if (!isOpen) return null
   
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
-  const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' }
-  
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div 
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in" 
-        onClick={onClose} 
-      />
-      <div 
-        ref={modalRef}
-        role="dialog"
-        className={`modal-content relative z-10 w-full ${sizes[size]} ${isMobile ? 'mobile-modal animate-slide-up' : 'rounded-3xl'} bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col`}
-        style={{ maxHeight: isMobile ? '92vh' : '85vh' }}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button 
             onClick={onClose} 
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors touch-target flex items-center justify-center"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 60px)', WebkitOverflowScrolling: 'touch' }}>
+          {children}
+        </div>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto flex-1">
           {children}
         </div>
       </div>
@@ -886,22 +889,30 @@ function TaskForm({ task, categories, onClose }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="space-y-5">
       <div>
-        <label className="label">What needs to be done? *</label>
-        <input type="text" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} className={`input ${errors.title ? 'border-red-500' : ''}`} placeholder="Enter task title" autoFocus />
+        <label className="label">Task Title *</label>
+        <input 
+          type="text" 
+          value={form.title} 
+          onChange={(e) => setForm({...form, title: e.target.value})} 
+          className={`input ${errors.title ? 'border-red-500' : ''}`} 
+          placeholder="What needs to be done?" 
+          autoFocus 
+        />
         {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      
+      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="label">Category *</label>
+          <label className="label">Category</label>
           <select value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="input">
-            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             <option value="general">General</option>
+            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="label">Priority *</label>
+          <label className="label">Priority</label>
           <select value={form.priority} onChange={(e) => setForm({...form, priority: e.target.value})} className="input">
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -909,33 +920,51 @@ function TaskForm({ task, categories, onClose }) {
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="label">Due Date *</label>
-          <input type="date" value={form.dueDate} onChange={(e) => setForm({...form, dueDate: e.target.value})} className={`input ${errors.dueDate ? 'border-red-500' : ''}`} />
+          <input 
+            type="date" 
+            value={form.dueDate} 
+            onChange={(e) => setForm({...form, dueDate: e.target.value})} 
+            className={`input ${errors.dueDate ? 'border-red-500' : ''}`} 
+          />
           {errors.dueDate && <p className="text-red-500 text-xs mt-1">{errors.dueDate}</p>}
         </div>
         <div>
           <label className="label">Time *</label>
-          <input type="time" value={form.dueTime} onChange={(e) => setForm({...form, dueTime: e.target.value})} className={`input ${errors.dueTime ? 'border-red-500' : ''}`} />
+          <input 
+            type="time" 
+            value={form.dueTime} 
+            onChange={(e) => setForm({...form, dueTime: e.target.value})} 
+            className={`input ${errors.dueTime ? 'border-red-500' : ''}`} 
+          />
           {errors.dueTime && <p className="text-red-500 text-xs mt-1">{errors.dueTime}</p>}
         </div>
       </div>
-      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/30">
+      
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/30">
         <div className="flex items-center gap-3">
           {form.reminder ? <Bell className="w-5 h-5 text-violet-500" /> : <BellOff className="w-5 h-5 text-slate-400" />}
-          <div>
-            <p className="text-sm font-medium">Reminder</p>
-            <p className="text-xs text-slate-500">Get notified before due</p>
-          </div>
+          <span className="text-sm font-medium">Reminder</span>
         </div>
-        <button type="button" onClick={() => setForm({...form, reminder: !form.reminder})} className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
+        <button 
+          type="button" 
+          onClick={() => setForm({...form, reminder: !form.reminder})} 
+          className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+        >
           <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
       </div>
-      <div className="flex gap-3 pt-4 pb-8">
-        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
-        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (task ? 'Save' : 'Create')}</button>
+      
+      <div className="flex gap-3 pt-4">
+        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>
+          {isSubmitting ? 'Saving...' : (task ? 'Save Task' : 'Create Task')}
+        </button>
       </div>
     </form>
   )
@@ -1344,38 +1373,69 @@ function HabitForm({ habit, onClose }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="space-y-5">
       <div>
         <label className="label">Habit Name *</label>
-        <input type="text" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className={`input ${errors.name ? 'border-red-500' : ''}`} placeholder="e.g., Exercise, Read" autoFocus />
+        <input 
+          type="text" 
+          value={form.name} 
+          onChange={(e) => setForm({...form, name: e.target.value})} 
+          className={`input ${errors.name ? 'border-red-500' : ''}`} 
+          placeholder="e.g., Exercise, Read, Meditate" 
+          autoFocus 
+        />
         {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
       </div>
+      
       <div>
-        <label className="label">Color *</label>
-        <div className="flex gap-3 flex-wrap">{colors.map(c => <button type="button" key={c} onClick={() => setForm({...form, color: c})} className={`w-10 h-10 rounded-full transition-transform touch-target ${form.color === c ? 'ring-2 ring-offset-2 ring-violet-500 scale-110' : ''}`} style={{ backgroundColor: c }} />)}</div>
+        <label className="label">Color</label>
+        <div className="flex gap-3 flex-wrap">
+          {colors.map(c => (
+            <button 
+              type="button" 
+              key={c} 
+              onClick={() => setForm({...form, color: c})} 
+              className={`w-10 h-10 rounded-full transition-all ${form.color === c ? 'ring-2 ring-offset-2 ring-violet-500 scale-110' : 'hover:scale-105'}`} 
+              style={{ backgroundColor: c }} 
+            />
+          ))}
+        </div>
       </div>
-      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/30">
+      
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/30">
         <div className="flex items-center gap-3">
           {form.reminder ? <Bell className="w-5 h-5 text-violet-500" /> : <BellOff className="w-5 h-5 text-slate-400" />}
-          <div>
-            <p className="text-sm font-medium">Daily Reminder</p>
-            <p className="text-xs text-slate-500">Get notified every day</p>
-          </div>
+          <span className="text-sm font-medium">Daily Reminder</span>
         </div>
-        <button type="button" onClick={() => setForm({...form, reminder: !form.reminder})} className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
+        <button 
+          type="button" 
+          onClick={() => setForm({...form, reminder: !form.reminder})} 
+          className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+        >
           <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
       </div>
+      
       {form.reminder && (
         <div>
           <label className="label">Reminder Time *</label>
-          <input type="time" value={form.reminderTime} onChange={(e) => setForm({...form, reminderTime: e.target.value})} className={`input ${errors.reminderTime ? 'border-red-500' : ''}`} />
+          <input 
+            type="time" 
+            value={form.reminderTime} 
+            onChange={(e) => setForm({...form, reminderTime: e.target.value})} 
+            className={`input ${errors.reminderTime ? 'border-red-500' : ''}`} 
+          />
           {errors.reminderTime && <p className="text-red-500 text-xs mt-1">{errors.reminderTime}</p>}
         </div>
       )}
-      <div className="flex gap-3 pt-4 pb-8">
-        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
-        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (habit ? 'Save' : 'Create')}</button>
+      
+      <div className="flex gap-3 pt-4">
+        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>
+          {isSubmitting ? 'Saving...' : (habit ? 'Save Habit' : 'Create Habit')}
+        </button>
       </div>
     </form>
   )
