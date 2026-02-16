@@ -228,19 +228,23 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
   const modalRef = useRef(null)
   
   useEffect(() => {
+    const handleResize = () => {
+      if (modalRef.current && isOpen) {
+        modalRef.current.style.maxHeight = `${window.innerHeight * 0.9}px`
+      }
+    }
+    
     if (isOpen) {
       document.body.style.overflow = 'hidden'
-      document.body.style.position = 'fixed'
-      document.body.style.width = '100%'
+      handleResize()
+      window.addEventListener('resize', handleResize)
     } else {
       document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.width = ''
     }
+    
     return () => { 
       document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.width = ''
+      window.removeEventListener('resize', handleResize)
     }
   }, [isOpen])
   
@@ -257,7 +261,7 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
       />
       <div 
         ref={modalRef}
-        className={`relative z-10 w-full ${sizes[size]} ${isMobile ? 'mobile-modal animate-slide-up' : 'max-h-[85vh] rounded-3xl'} overflow-hidden bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 flex flex-col`}
+        className={`relative z-10 w-full ${sizes[size]} ${isMobile ? 'mobile-modal animate-slide-up' : 'rounded-3xl'} bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 flex flex-col max-h-[90vh]`}
       >
         <div className="flex items-center justify-between p-4 border-b border-slate-200/50 dark:border-slate-700/50 flex-shrink-0">
           <h2 className="text-lg font-semibold">{title}</h2>
@@ -268,7 +272,7 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 min-h-0">{children}</div>
       </div>
     </div>
   )
@@ -860,7 +864,7 @@ function TaskForm({ task, categories, onClose }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="space-y-4 pb-safe">
       <div>
         <label className="label">What needs to be done? *</label>
         <input type="text" value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} className={`input ${errors.title ? 'border-red-500' : ''}`} placeholder="Enter task title" autoFocus />
@@ -907,7 +911,7 @@ function TaskForm({ task, categories, onClose }) {
           <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
       </div>
-      <div className="flex gap-3 pt-2 pb-4">
+      <div className="sticky bottom-0 flex gap-3 pt-4 pb-2 bg-gradient-to-t from-white dark:from-slate-800 to-transparent">
         <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
         <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (task ? 'Save' : 'Create')}</button>
       </div>
@@ -1318,7 +1322,7 @@ function HabitForm({ habit, onClose }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="space-y-4 pb-safe">
       <div>
         <label className="label">Habit Name *</label>
         <input type="text" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className={`input ${errors.name ? 'border-red-500' : ''}`} placeholder="e.g., Exercise, Read" autoFocus />
@@ -1347,7 +1351,7 @@ function HabitForm({ habit, onClose }) {
           {errors.reminderTime && <p className="text-red-500 text-xs mt-1">{errors.reminderTime}</p>}
         </div>
       )}
-      <div className="flex gap-3 pt-2 pb-4">
+      <div className="sticky bottom-0 flex gap-3 pt-4 pb-2 bg-gradient-to-t from-white dark:from-slate-800 to-transparent">
         <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
         <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (habit ? 'Save' : 'Create')}</button>
       </div>

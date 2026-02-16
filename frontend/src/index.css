@@ -198,10 +198,18 @@
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
+    top: auto !important;
     max-width: 100% !important;
+    width: 100% !important;
     border-radius: 2rem 2rem 0 0 !important;
-    max-height: 90dvh !important;
-    height: auto !important;
+    max-height: 90vh !important;
+    overflow: hidden !important;
+  }
+  
+  .mobile-modal > div:last-child {
+    -webkit-overflow-scrolling: touch !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
   }
   
   .mobile-modal input,
