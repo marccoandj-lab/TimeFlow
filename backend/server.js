@@ -724,10 +724,35 @@ app.put('/api/tasks/:id', (req, res) => {
   res.json(task);
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
-  db.tasks = db.tasks.filter(t => t.id !== req.params.id);
-  db.timeSessions = db.timeSessions.filter(s => s.taskId !== req.params.id);
+app.delete('/api/tasks/:id', async (req, res) => {
+  const taskId = req.params.id;
+  
+  db.tasks = db.tasks.filter(t => t.id !== taskId);
+  db.timeSessions = db.timeSessions.filter(s => s.taskId !== taskId);
   saveDB(db);
+  
+  try {
+    const usersSnapshot = await firestore.collection('users').get();
+    for (const userDoc of usersSnapshot.docs) {
+      const snapshot = await firestore
+        .collection('users')
+        .doc(userDoc.id)
+        .collection('notifications')
+        .where('relatedId', '==', taskId)
+        .where('type', '==', 'task')
+        .get();
+      
+      for (const doc of snapshot.docs) {
+        await doc.ref.delete();
+      }
+      if (snapshot.size > 0) {
+        console.log(`🗑️ Deleted ${snapshot.size} notifications for task ${taskId} (user ${userDoc.id})`);
+      }
+    }
+  } catch (error) {
+    console.error('Error deleting task notifications from Firestore:', error.message);
+  }
+  
   res.status(204).send();
 });
 
@@ -819,10 +844,35 @@ app.put('/api/habits/:id', (req, res) => {
   res.json(habit);
 });
 
-app.delete('/api/habits/:id', (req, res) => {
-  db.habits = db.habits.filter(h => h.id !== req.params.id);
-  db.habitLogs = db.habitLogs.filter(l => l.habitId !== req.params.id);
+app.delete('/api/habits/:id', async (req, res) => {
+  const habitId = req.params.id;
+  
+  db.habits = db.habits.filter(h => h.id !== habitId);
+  db.habitLogs = db.habitLogs.filter(l => l.habitId !== habitId);
   saveDB(db);
+  
+  try {
+    const usersSnapshot = await firestore.collection('users').get();
+    for (const userDoc of usersSnapshot.docs) {
+      const snapshot = await firestore
+        .collection('users')
+        .doc(userDoc.id)
+        .collection('notifications')
+        .where('relatedId', '==', habitId)
+        .where('type', '==', 'habit')
+        .get();
+      
+      for (const doc of snapshot.docs) {
+        await doc.ref.delete();
+      }
+      if (snapshot.size > 0) {
+        console.log(`🗑️ Deleted ${snapshot.size} notifications for habit ${habitId} (user ${userDoc.id})`);
+      }
+    }
+  } catch (error) {
+    console.error('Error deleting habit notifications from Firestore:', error.message);
+  }
+  
   res.status(204).send();
 });
 
