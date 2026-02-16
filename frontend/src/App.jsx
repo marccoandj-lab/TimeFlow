@@ -230,10 +230,18 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.width = '100%'
     } else {
       document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
     }
-    return () => { document.body.style.overflow = '' }
+    return () => { 
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
+    }
   }, [isOpen])
   
   if (!isOpen) return null
@@ -249,9 +257,9 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
       />
       <div 
         ref={modalRef}
-        className={`relative z-10 w-full ${sizes[size]} ${isMobile ? 'mobile-modal animate-slide-up' : 'max-h-[85vh] rounded-3xl'} overflow-hidden bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50`}
+        className={`relative z-10 w-full ${sizes[size]} ${isMobile ? 'mobile-modal animate-slide-up' : 'max-h-[85vh] rounded-3xl'} overflow-hidden bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 flex flex-col`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-slate-200/50 dark:border-slate-700/50">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200/50 dark:border-slate-700/50 flex-shrink-0">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button 
             onClick={onClose} 
@@ -260,7 +268,7 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-4 overflow-auto max-h-[calc(85vh-60px)]">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4">{children}</div>
       </div>
     </div>
   )
@@ -887,19 +895,19 @@ function TaskForm({ task, categories, onClose }) {
           {errors.dueTime && <p className="text-red-500 text-xs mt-1">{errors.dueTime}</p>}
         </div>
       </div>
-      <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
+      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/30">
         <div className="flex items-center gap-3">
-          {form.reminder ? <Bell className="w-5 h-5 text-indigo-500" /> : <BellOff className="w-5 h-5 text-gray-400" />}
+          {form.reminder ? <Bell className="w-5 h-5 text-violet-500" /> : <BellOff className="w-5 h-5 text-slate-400" />}
           <div>
             <p className="text-sm font-medium">Reminder</p>
-            <p className="text-xs text-gray-500">Get notified before due</p>
+            <p className="text-xs text-slate-500">Get notified before due</p>
           </div>
         </div>
-        <button type="button" onClick={() => setForm({...form, reminder: !form.reminder})} className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+        <button type="button" onClick={() => setForm({...form, reminder: !form.reminder})} className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
           <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
       </div>
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-3 pt-2 pb-4">
         <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
         <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (task ? 'Save' : 'Create')}</button>
       </div>
@@ -1318,17 +1326,17 @@ function HabitForm({ habit, onClose }) {
       </div>
       <div>
         <label className="label">Color *</label>
-        <div className="flex gap-3 flex-wrap">{colors.map(c => <button type="button" key={c} onClick={() => setForm({...form, color: c})} className={`w-10 h-10 rounded-full transition-transform touch-target ${form.color === c ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : ''}`} style={{ backgroundColor: c }} />)}</div>
+        <div className="flex gap-3 flex-wrap">{colors.map(c => <button type="button" key={c} onClick={() => setForm({...form, color: c})} className={`w-10 h-10 rounded-full transition-transform touch-target ${form.color === c ? 'ring-2 ring-offset-2 ring-violet-500 scale-110' : ''}`} style={{ backgroundColor: c }} />)}</div>
       </div>
-      <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
+      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/30">
         <div className="flex items-center gap-3">
-          {form.reminder ? <Bell className="w-5 h-5 text-indigo-500" /> : <BellOff className="w-5 h-5 text-gray-400" />}
+          {form.reminder ? <Bell className="w-5 h-5 text-violet-500" /> : <BellOff className="w-5 h-5 text-slate-400" />}
           <div>
             <p className="text-sm font-medium">Daily Reminder</p>
-            <p className="text-xs text-gray-500">Get notified every day</p>
+            <p className="text-xs text-slate-500">Get notified every day</p>
           </div>
         </div>
-        <button type="button" onClick={() => setForm({...form, reminder: !form.reminder})} className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+        <button type="button" onClick={() => setForm({...form, reminder: !form.reminder})} className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
           <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
       </div>
@@ -1339,7 +1347,7 @@ function HabitForm({ habit, onClose }) {
           {errors.reminderTime && <p className="text-red-500 text-xs mt-1">{errors.reminderTime}</p>}
         </div>
       )}
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-3 pt-2 pb-4">
         <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
         <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (habit ? 'Save' : 'Create')}</button>
       </div>

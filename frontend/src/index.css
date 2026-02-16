@@ -200,7 +200,14 @@
     right: 0 !important;
     max-width: 100% !important;
     border-radius: 2rem 2rem 0 0 !important;
-    max-height: 85vh !important;
+    max-height: 90dvh !important;
+    height: auto !important;
+  }
+  
+  .mobile-modal input,
+  .mobile-modal select,
+  .mobile-modal textarea {
+    font-size: 16px !important;
   }
 }
 
