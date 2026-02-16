@@ -22,74 +22,75 @@ export const usePWA = () => useContext(PWAContext)
 const mobileViews = ['dashboard', 'tasks', 'timer', 'habits', 'profile']
 
 function useSwipeNavigation(activeView, setActiveView, isMobile) {
-  const touchStartX = useRef(0)
-  const touchStartY = useRef(0)
-  const touchEndX = useRef(0)
+  const touchStart = useRef({ x: 0, y: 0, time: 0 })
   const isSwiping = useRef(false)
+  const containerRef = useRef(null)
 
   const handleTouchStart = useCallback((e) => {
     if (!isMobile) return
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
-    isSwiping.current = true
+    const touch = e.touches[0]
+    touchStart.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now()
+    }
+    isSwiping.current = false
   }, [isMobile])
 
   const handleTouchMove = useCallback((e) => {
-    if (!isMobile || !isSwiping.current) return
-    touchEndX.current = e.touches[0].clientX
+    if (!isMobile) return
+    const touch = e.touches[0]
+    const deltaX = touch.clientX - touchStart.current.x
+    const deltaY = touch.clientY - touchStart.current.y
+    
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+      isSwiping.current = true
+    }
   }, [isMobile])
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e) => {
     if (!isMobile || !isSwiping.current) return
-    isSwiping.current = false
-
-    const diffX = touchStartX.current - touchEndX.current
-    const absDiffX = Math.abs(diffX)
-    const absDiffY = Math.abs(touchStartY.current - (touchEndX.current || touchStartY.current))
     
-    if (absDiffX > 60 && absDiffX > absDiffY) {
+    const touch = e.changedTouches[0]
+    const deltaX = touchStart.current.x - touch.clientX
+    const deltaY = touchStart.current.y - touch.clientY
+    const deltaTime = Date.now() - touchStart.current.time
+    
+    const isValidSwipe = Math.abs(deltaX) > 50 && 
+                         Math.abs(deltaX) > Math.abs(deltaY) * 1.5 &&
+                         deltaTime < 500
+    
+    if (isValidSwipe) {
       const currentIndex = mobileViews.indexOf(activeView)
-      if (diffX > 0 && currentIndex < mobileViews.length - 1) {
+      if (deltaX > 0 && currentIndex < mobileViews.length - 1) {
         setActiveView(mobileViews[currentIndex + 1])
-      } else if (diffX < 0 && currentIndex > 0) {
+      } else if (deltaX < 0 && currentIndex > 0) {
         setActiveView(mobileViews[currentIndex - 1])
       }
     }
     
-    touchStartX.current = 0
-    touchEndX.current = 0
+    isSwiping.current = false
   }, [isMobile, activeView, setActiveView])
 
-  return { handleTouchStart, handleTouchMove, handleTouchEnd }
+  return { handleTouchStart, handleTouchMove, handleTouchEnd, isSwiping }
 }
 
 function PageTransition({ children, viewKey, direction }) {
-  const [displayChildren, setDisplayChildren] = useState(children)
-  const [isAnimating, setIsAnimating] = useState(false)
   const prevKeyRef = useRef(viewKey)
+  const [showAnimation, setShowAnimation] = useState(false)
 
   useEffect(() => {
     if (prevKeyRef.current !== viewKey) {
-      setIsAnimating(true)
-      const timer = setTimeout(() => {
-        setDisplayChildren(children)
-        setIsAnimating(false)
-      }, 150)
+      setShowAnimation(true)
+      const timer = setTimeout(() => setShowAnimation(false), 400)
       prevKeyRef.current = viewKey
       return () => clearTimeout(timer)
-    } else {
-      setDisplayChildren(children)
     }
-  }, [children, viewKey])
-
-  const getAnimationClass = () => {
-    if (!isAnimating) return 'animate-fade-in'
-    return direction === 'right' ? 'animate-slide-in-right' : 'animate-slide-in-left'
-  }
+  }, [viewKey])
 
   return (
-    <div className={`w-full ${getAnimationClass()}`}>
-      {displayChildren}
+    <div className={`w-full h-full ${showAnimation ? 'animate-page-in' : ''}`}>
+      {children}
     </div>
   )
 }
@@ -1594,16 +1595,16 @@ function AppContent() {
   return (
     <PWAContext.Provider value={{ deferredPrompt, showInstallPrompt }}>
       <ThemeContext.Provider value={{ dark, setDark }}>
-        <div 
-          className="flex min-h-screen bg-slate-50 dark:bg-slate-950"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
+        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
           {!isMobile && (
             <Sidebar activeView={activeView} setActiveView={setActiveView} collapsed={sidebarCollapsed} />
           )}
-          <main className="flex-1 p-4 md:p-6 overflow-hidden">
+          <main 
+            className="flex-1 p-4 md:p-6 overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             {isMobile && (
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -1620,7 +1621,7 @@ function AppContent() {
                 </div>
               </div>
             )}
-            <div className="h-full overflow-auto">
+            <div className="h-full overflow-auto page-container">
               <PageTransition viewKey={activeView} direction={getDirection()}>
                 <View onNavigate={setActiveView} />
               </PageTransition>
