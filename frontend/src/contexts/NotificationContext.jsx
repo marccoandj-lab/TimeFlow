@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging'
-import { auth, app } from '../firebase'
+import { app } from '../firebase'
 
 const NotificationContext = createContext()
 
@@ -10,6 +10,15 @@ export function useNotifications() {
 
 const scheduledNotificationsLocal = new Map()
 const API_BASE = '/api'
+
+const getDeviceId = () => {
+  let deviceId = localStorage.getItem('timeflow_deviceId')
+  if (!deviceId) {
+    deviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    localStorage.setItem('timeflow_deviceId', deviceId)
+  }
+  return deviceId
+}
 
 export function NotificationProvider({ children }) {
   const [fcmToken, setFcmToken] = useState(null)
@@ -103,7 +112,6 @@ export function NotificationProvider({ children }) {
     
     console.log('🔄 Registering FCM token...')
     console.log('  messagingInstance:', !!messagingInstance)
-    console.log('  auth.currentUser:', !!auth?.currentUser)
     
     if (!messagingInstance) {
       console.error('❌ Messaging not initialized')
@@ -111,19 +119,10 @@ export function NotificationProvider({ children }) {
       return null
     }
     
-    if (!auth?.currentUser) {
-      console.error('❌ No current user')
-      registeringRef.current = false
-      return null
-    }
+    const deviceId = getDeviceId()
     
     try {
-      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
-      if (!vapidKey) {
-        console.error('❌ VAPID key missing')
-        registeringRef.current = false
-        return null
-      }
+      const vapidKey = "BGUOgMepqpDey_wsfHDNmkZkV7FIeePIOFRETGlgIKCNi9Lu9kauZBY8g2rjIolslF7GLsWm6b_zut5PofaZI0k"
       
       const token = await getToken(messagingInstance, { vapidKey })
       
@@ -135,14 +134,14 @@ export function NotificationProvider({ children }) {
       if (token) {
         setFcmToken(token)
         console.log('✅ FCM token:', token.substring(0, 30) + '...')
-        console.log('✅ User ID:', auth.currentUser.uid)
+        console.log('✅ Device ID:', deviceId)
         
         try {
           const response = await fetch(`${API_BASE}/notifications/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-              userId: auth.currentUser.uid, 
+              userId: deviceId, 
               fcmToken: token 
             })
           })
@@ -171,10 +170,10 @@ export function NotificationProvider({ children }) {
   }, [messagingInstance])
 
   useEffect(() => {
-    if (isReady && auth?.currentUser && messagingInstance && Notification.permission === 'granted') {
+    if (isReady && messagingInstance && Notification.permission === 'granted') {
       registerFCMToken()
     }
-  }, [isReady, auth?.currentUser, messagingInstance, registerFCMToken])
+  }, [isReady, messagingInstance, registerFCMToken])
 
   const requestPermission = async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -241,20 +240,20 @@ export function NotificationProvider({ children }) {
     }
 
     let currentToken = fcmToken
-    if (!currentToken && messagingInstance && auth?.currentUser) {
+    if (!currentToken && messagingInstance) {
       console.log('No FCM token, attempting to register...')
       currentToken = await registerFCMToken()
     }
 
-    if (auth?.currentUser) {
-      try {
-        await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/task/${task.id}`, {
-          method: 'DELETE'
-        })
-        console.log('🧹 Cleared existing notifications for task')
-      } catch (e) {
-        console.error('❌ Failed to clear existing notifications:', e)
-      }
+    const deviceId = getDeviceId()
+    
+    try {
+      await fetch(`${API_BASE}/notifications/${deviceId}/task/${task.id}`, {
+        method: 'DELETE'
+      })
+      console.log('🧹 Cleared existing notifications for task')
+    } catch (e) {
+      console.error('❌ Failed to clear existing notifications:', e)
     }
 
     const dueDate = new Date(task.dueDate + 'T' + (task.dueTime || '09:00'))
@@ -286,13 +285,13 @@ export function NotificationProvider({ children }) {
 
       console.log(`⏰ Scheduling ${label} notification in ${Math.round(delay/1000)}s`)
 
-      if (auth?.currentUser && currentToken) {
+      if (currentToken) {
         try {
           const response = await fetch(`${API_BASE}/notifications/schedule`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              userId: auth.currentUser.uid,
+              userId: deviceId,
               title: `⏰ ${task.title}`,
               body: `Due ${label}${task.dueTime ? ` at ${task.dueTime}` : ''}`,
               scheduledFor: notifyTime.toISOString(),
@@ -351,20 +350,20 @@ export function NotificationProvider({ children }) {
     }
 
     let currentToken = fcmToken
-    if (!currentToken && messagingInstance && auth?.currentUser) {
+    if (!currentToken && messagingInstance) {
       console.log('No FCM token, attempting to register...')
       currentToken = await registerFCMToken()
     }
 
-    if (auth?.currentUser) {
-      try {
-        await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/habit/${habit.id}`, {
-          method: 'DELETE'
-        })
-        console.log('🧹 Cleared existing notifications for habit')
-      } catch (e) {
-        console.error('❌ Failed to clear existing habit notifications:', e)
-      }
+    const deviceId = getDeviceId()
+    
+    try {
+      await fetch(`${API_BASE}/notifications/${deviceId}/habit/${habit.id}`, {
+        method: 'DELETE'
+      })
+      console.log('🧹 Cleared existing notifications for habit')
+    } catch (e) {
+      console.error('❌ Failed to clear existing habit notifications:', e)
     }
 
     const now = new Date()
@@ -398,13 +397,13 @@ export function NotificationProvider({ children }) {
 
       console.log(`⏰ Scheduling ${label} notification in ${Math.round(delay/1000)}s`)
 
-      if (auth?.currentUser && currentToken) {
+      if (currentToken) {
         try {
           const response = await fetch(`${API_BASE}/notifications/schedule`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              userId: auth.currentUser.uid,
+              userId: deviceId,
               title: `🎯 ${habit.name}`,
               body: `Time to complete your habit! ${label}${habit.reminderTime ? ` at ${habit.reminderTime}` : ''}`,
               scheduledFor: notifyTime.toISOString(),
@@ -465,16 +464,15 @@ export function NotificationProvider({ children }) {
       }
     }
 
-    if (auth?.currentUser) {
-      try {
-        const response = await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/task/${taskId}`, {
-          method: 'DELETE'
-        })
-        const data = await response.json()
-        console.log(`  ✓ Deleted ${data.deleted || 0} scheduled notifications from server`)
-      } catch (error) {
-        console.error('Error canceling task notifications:', error)
-      }
+    const deviceId = getDeviceId()
+    try {
+      const response = await fetch(`${API_BASE}/notifications/${deviceId}/task/${taskId}`, {
+        method: 'DELETE'
+      })
+      const data = await response.json()
+      console.log(`  ✓ Deleted ${data.deleted || 0} scheduled notifications from server`)
+    } catch (error) {
+      console.error('Error canceling task notifications:', error)
     }
   }
 
@@ -492,13 +490,13 @@ export function NotificationProvider({ children }) {
       }
     }
 
-    if (auth?.currentUser) {
-      try {
-        const response = await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/habit/${habitId}`, {
-          method: 'DELETE'
-        })
-        const data = await response.json()
-        console.log(`  ✓ Deleted ${data.deleted || 0} scheduled notifications from server`)
+    const deviceId = getDeviceId()
+    try {
+      const response = await fetch(`${API_BASE}/notifications/${deviceId}/habit/${habitId}`, {
+        method: 'DELETE'
+      })
+      const data = await response.json()
+      console.log(`  ✓ Deleted ${data.deleted || 0} scheduled notifications from server`)
       } catch (error) {
         console.error('Error canceling habit notifications:', error)
       }

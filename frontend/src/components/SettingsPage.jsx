@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { useAuth } from '../contexts/AuthContext'
 import { 
   Settings, Bell, Moon, Sun, Clock, Trash2, Download,
-  Volume2, VolumeX, Smartphone, Globe, Shield, HelpCircle,
+  Volume2, VolumeX, Smartphone, Shield, HelpCircle,
   Info, ChevronRight, ToggleLeft, ToggleRight
 } from 'lucide-react'
-import { doc, setDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { useNotifications } from '../contexts/NotificationContext'
 
 const storage = {
   get: (key, def = null) => {
@@ -31,7 +29,7 @@ const storage = {
 }
 
 export default function SettingsPage() {
-  const { currentUser, userData, updateUserProfile } = useAuth()
+  const { requestPermission, permission } = useNotifications()
   const [settings, setSettings] = useState(() => {
     const saved = storage.get('appSettings')
     return saved || {
@@ -51,43 +49,26 @@ export default function SettingsPage() {
 
   useEffect(() => {
     isMountedRef.current = true
-    if (userData?.settings) {
-      setSettings(prev => ({ ...prev, ...userData.settings }))
-    }
     return () => {
       isMountedRef.current = false
     }
-  }, [userData])
+  }, [])
 
-  async function updateSettings(key, value) {
+  function updateSettings(key, value) {
     const newSettings = { ...settings, [key]: value }
     if (isMountedRef.current) {
       setSettings(newSettings)
     }
     storage.set('appSettings', newSettings)
-    
-    setLoading(true)
-    try {
-      await updateUserProfile({ settings: newSettings })
-    } catch (err) {
-      console.error('Failed to save settings')
-    }
-    if (isMountedRef.current) {
-      setLoading(false)
-    }
   }
 
   function exportData() {
     const data = {
-      user: {
-        email: currentUser?.email,
-        displayName: userData?.displayName,
-        exportedAt: new Date().toISOString()
-      },
       settings: settings,
       tasks: storage.get('tasks', []),
       habits: storage.get('habits', []),
-      notes: storage.get('notes', [])
+      notes: storage.get('notes', []),
+      exportedAt: new Date().toISOString()
     }
     
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -104,6 +85,13 @@ export default function SettingsPage() {
       storage.clear()
       window.location.reload()
     }
+  }
+
+  async function handleNotificationToggle() {
+    if (permission !== 'granted') {
+      await requestPermission()
+    }
+    updateSettings('notifications', !settings.notifications)
   }
 
   return (
@@ -148,17 +136,17 @@ export default function SettingsPage() {
           
           <div className="space-y-3">
             <button 
-              onClick={() => updateSettings('notifications', !settings.notifications)}
+              onClick={handleNotificationToggle}
               className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                {settings.notifications ? <Bell className="w-5 h-5 text-indigo-500" /> : <Bell className="w-5 h-5 text-gray-400" />}
+                {settings.notifications && permission === 'granted' ? <Bell className="w-5 h-5 text-indigo-500" /> : <Bell className="w-5 h-5 text-gray-400" />}
                 <div className="text-left">
                   <p className="font-medium text-sm">Push Notifications</p>
-                  <p className="text-xs text-gray-500">Get notified about tasks and habits</p>
+                  <p className="text-xs text-gray-500">{permission === 'granted' ? 'Enabled - get notified about tasks' : 'Click to enable notifications'}</p>
                 </div>
               </div>
-              {settings.notifications ? (
+              {settings.notifications && permission === 'granted' ? (
                 <ToggleRight className="w-8 h-8 text-indigo-500" />
               ) : (
                 <ToggleLeft className="w-8 h-8 text-gray-400" />

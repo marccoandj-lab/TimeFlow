@@ -5,12 +5,9 @@ import {
   Plus, Trash2, Edit3, Search, Play, Pause, RotateCcw,
   CheckCircle2, Circle, AlertTriangle, Timer, X, Menu, Sparkles, TrendingUp,
   ChevronLeft, ChevronRight, Info, Zap, Coffee, Brain, Dumbbell, BookOpen, Home,
-  Settings, User, LogOut, ChevronDown, Bell, BellOff, Download
+  Settings, User, ChevronDown, Bell, BellOff, Download
 } from 'lucide-react'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext'
-import AuthPage from './components/AuthPage'
-import ProfilePage from './components/ProfilePage'
 import SettingsPage from './components/SettingsPage'
 
 const API_BASE = '/api'
@@ -230,17 +227,17 @@ const api = {
   notifications: {
     cleanup: async () => {
       try {
-        const userId = localStorage.getItem('timeflow_userId')
-        if (userId) {
-          await fetch(`${API_BASE}/notifications/cleanup/${userId}`)
+        const deviceId = localStorage.getItem('timeflow_deviceId')
+        if (deviceId) {
+          await fetch(`${API_BASE}/notifications/cleanup/${deviceId}`)
         }
       } catch {}
     },
     list: async () => {
       try {
-        const userId = localStorage.getItem('timeflow_userId')
-        if (userId) {
-          const res = await fetch(`${API_BASE}/notifications/list/${userId}`)
+        const deviceId = localStorage.getItem('timeflow_deviceId')
+        if (deviceId) {
+          const res = await fetch(`${API_BASE}/notifications/list/${deviceId}`)
           return await res.json()
         }
       } catch {}
@@ -343,8 +340,7 @@ function EmptyState({ icon: Icon, title, description, action }) {
   )
 }
 
-function UserMenu({ onNavigate, onLogout }) {
-  const { currentUser, userData } = useAuth()
+function UserMenu({ onNavigate }) {
   const [isOpen, setIsOpen] = useState(false)
   
   return (
@@ -354,11 +350,7 @@ function UserMenu({ onNavigate, onLogout }) {
         className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       >
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-          {currentUser?.photoURL ? (
-            <img src={currentUser.photoURL} alt="" className="w-full h-full rounded-lg object-cover" />
-          ) : (
-            <span className="text-white text-sm font-medium">{(userData?.displayName || currentUser?.email || 'U')[0].toUpperCase()}</span>
-          )}
+          <User className="w-4 h-4 text-white" />
         </div>
         <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -367,27 +359,18 @@ function UserMenu({ onNavigate, onLogout }) {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div className="absolute right-0 top-full mt-1 w-48 card p-1 z-50 shadow-lg">
-            <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 mb-1">
-              <p className="text-sm font-medium truncate">{userData?.displayName || 'User'}</p>
-              <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
-            </div>
-            <button 
-              onClick={() => { setIsOpen(false); onNavigate('profile') }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
-            >
-              <User className="w-4 h-4" /> Profile
-            </button>
             <button 
               onClick={() => { setIsOpen(false); onNavigate('settings') }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
             >
               <Settings className="w-4 h-4" /> Settings
             </button>
-            <button 
-              onClick={() => { setIsOpen(false); onLogout() }}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-500 text-sm"
-            >
-              <LogOut className="w-4 h-4" /> Sign Out
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
             </button>
           </div>
         </>
@@ -402,7 +385,7 @@ function MobileNav({ activeView, setActiveView }) {
     { id: 'tasks', icon: CheckSquare, label: 'Tasks' },
     { id: 'timer', icon: Timer, label: 'Focus' },
     { id: 'habits', icon: Target, label: 'Habits' },
-    { id: 'profile', icon: User, label: 'Profile' },
+    { id: 'settings', icon: Settings, label: 'Settings' },
   ]
   
   return (
@@ -431,7 +414,6 @@ function MobileNav({ activeView, setActiveView }) {
 }
 
 function Sidebar({ activeView, setActiveView, collapsed }) {
-  const { currentUser, userData, logout } = useAuth()
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', desc: 'Overview & stats' },
     { id: 'tasks', icon: CheckSquare, label: 'Tasks', desc: 'Manage your tasks' },
@@ -479,20 +461,6 @@ function Sidebar({ activeView, setActiveView, collapsed }) {
         >
           <Settings className={`w-5 h-5 ${activeView === 'settings' ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400'}`} />
           {!collapsed && <span className="text-sm">Settings</span>}
-        </button>
-        
-        <button
-          onClick={() => setActiveView('profile')}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors touch-target ${activeView === 'profile' ? 'bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/50 dark:to-purple-950/50 text-violet-600 dark:text-violet-400' : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}
-        >
-          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-            {currentUser?.photoURL ? (
-              <img src={currentUser.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
-            ) : (
-              <span className="text-white text-[10px] font-medium">{(userData?.displayName || 'U')[0].toUpperCase()}</span>
-            )}
-          </div>
-          {!collapsed && <span className="text-sm truncate">{userData?.displayName || 'Profile'}</span>}
         </button>
       </div>
     </aside>
@@ -1683,7 +1651,6 @@ function InstallPrompt({ onInstall, onDismiss }) {
 }
 
 function AppContent() {
-  const { currentUser, logout, loading, error } = useAuth()
   const isMountedRef = useRef(true)
   const [dark, setDark] = useState(() => {
     const saved = storage.get('theme')
@@ -1700,6 +1667,9 @@ function AppContent() {
 
   useEffect(() => {
     isMountedRef.current = true
+    const userId = localStorage.getItem('timeflow_deviceId') || `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    localStorage.setItem('timeflow_deviceId', userId)
+    api.notifications.cleanup().catch(err => console.error('Cleanup error:', err))
     return () => {
       isMountedRef.current = false
     }
@@ -1732,14 +1702,8 @@ function AppContent() {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  useEffect(() => {
-    if (currentUser) {
-      api.notifications.cleanup().catch(err => console.error('Cleanup error:', err))
-    }
-  }, [currentUser])
-
   const getDirection = () => {
-    const mobileViewOrder = ['dashboard', 'tasks', 'calendar', 'timer', 'habits', 'notes', 'profile', 'settings']
+    const mobileViewOrder = ['dashboard', 'tasks', 'calendar', 'timer', 'habits', 'notes', 'settings']
     const prevIndex = mobileViewOrder.indexOf(prevViewRef.current)
     const currentIndex = mobileViewOrder.indexOf(activeView)
     prevViewRef.current = activeView
@@ -1760,41 +1724,6 @@ function AppContent() {
     storage.set('installPromptDismissed', true)
   }
 
-  const handleLogout = async () => {
-    try {
-      await logout()
-    } catch (err) {
-      console.error('Failed to logout')
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg shadow-violet-500/30">
-          <Sparkles className="w-7 h-7 text-white" />
-        </div>
-        <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full" />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4">
-        <div className="text-rose-500 text-center">
-          <p className="font-semibold">Configuration Error</p>
-          <p className="text-sm mt-2">{error}</p>
-          <p className="text-xs mt-4 text-slate-500">Please check Firebase environment variables</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!currentUser) {
-    return <AuthPage />
-  }
-
   const views = { 
     dashboard: Dashboard, 
     tasks: TasksView, 
@@ -1802,7 +1731,6 @@ function AppContent() {
     timer: PomodoroTimer, 
     habits: HabitsView, 
     notes: NotesView,
-    profile: ProfilePage,
     settings: SettingsPage
   }
   const View = views[activeView] || Dashboard
@@ -1832,7 +1760,7 @@ function AppContent() {
                   <button onClick={() => setDark(!dark)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl touch-target transition-colors">
                     {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-violet-500" />}
                   </button>
-                  <UserMenu onNavigate={setActiveView} onLogout={handleLogout} />
+                  <UserMenu onNavigate={setActiveView} />
                 </div>
               </div>
             )}
@@ -1852,10 +1780,8 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <AppContent />
-      </NotificationProvider>
-    </AuthProvider>
+    <NotificationProvider>
+      <AppContent />
+    </NotificationProvider>
   )
 }
