@@ -498,8 +498,7 @@ export function NotificationProvider({ children }) {
       const data = await response.json()
       console.log(`  ✓ Deleted ${data.deleted || 0} scheduled notifications from server`)
     } catch (error) {
-        console.error('Error canceling habit notifications:', error)
-      }
+      console.error('Error canceling habit notifications:', error)
     }
   }
 
