@@ -1695,6 +1695,8 @@ function AppContent() {
   const [isMobile, setIsMobile] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [showInstallPrompt, setShowInstallPrompt] = useState(false)
+  const prevViewRef = useRef(activeView)
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeNavigation(activeView, setActiveView, isMobile)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -1730,6 +1732,20 @@ function AppContent() {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
+  useEffect(() => {
+    if (currentUser) {
+      api.notifications.cleanup()
+    }
+  }, [currentUser])
+
+  const getDirection = () => {
+    const mobileViewOrder = ['dashboard', 'tasks', 'calendar', 'timer', 'habits', 'notes', 'profile', 'settings']
+    const prevIndex = mobileViewOrder.indexOf(prevViewRef.current)
+    const currentIndex = mobileViewOrder.indexOf(activeView)
+    prevViewRef.current = activeView
+    return currentIndex > prevIndex ? 'right' : 'left'
+  }
+
   const handleInstall = async () => {
     if (!deferredPrompt) return
     deferredPrompt.prompt()
@@ -1742,6 +1758,14 @@ function AppContent() {
   const handleDismissInstall = () => {
     setShowInstallPrompt(false)
     storage.set('installPromptDismissed', true)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (err) {
+      console.error('Failed to logout')
+    }
   }
 
   if (loading) {
@@ -1782,31 +1806,6 @@ function AppContent() {
     settings: SettingsPage
   }
   const View = views[activeView] || Dashboard
-
-  const prevViewRef = useRef(activeView)
-  const getDirection = () => {
-    const mobileViewOrder = ['dashboard', 'tasks', 'calendar', 'timer', 'habits', 'notes', 'profile', 'settings']
-    const prevIndex = mobileViewOrder.indexOf(prevViewRef.current)
-    const currentIndex = mobileViewOrder.indexOf(activeView)
-    prevViewRef.current = activeView
-    return currentIndex > prevIndex ? 'right' : 'left'
-  }
-
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeNavigation(activeView, setActiveView, isMobile)
-
-  useEffect(() => {
-    if (currentUser) {
-      api.notifications.cleanup()
-    }
-  }, [currentUser])
-
-  const handleLogout = async () => {
-    try {
-      await logout()
-    } catch (err) {
-      console.error('Failed to logout')
-    }
-  }
 
   return (
     <PWAContext.Provider value={{ deferredPrompt, showInstallPrompt }}>
