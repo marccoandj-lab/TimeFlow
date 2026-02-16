@@ -1083,15 +1083,18 @@ function PomodoroTimer() {
   })
   const [customMinutes, setCustomMinutes] = useState(() => getTimerSettings().pomodoroDuration)
 
-  useEffect(() => {
-    const checkSettings = () => {
-      const newSettings = getTimerSettings()
-      setTimerSettings(newSettings)
-      setCustomMinutes(newSettings.pomodoroDuration)
-    }
-    const interval = setInterval(checkSettings, 1000)
-    return () => clearInterval(interval)
-  }, [])
+  const saveTimerSetting = (key, value) => {
+    const saved = storage.get('appSettings') || {}
+    const newSettings = { ...saved, [key]: value }
+    storage.set('appSettings', newSettings)
+    setTimerSettings(getTimerSettings())
+  }
+
+  const updateCustomMinutes = (value) => {
+    const clampedValue = Math.max(1, Math.min(120, value))
+    setCustomMinutes(clampedValue)
+    saveTimerSetting('pomodoroDuration', clampedValue)
+  }
 
   const presets = [
     { label: 'Focus', mins: timerSettings.pomodoroDuration, icon: Brain, desc: 'Deep work', color: 'from-violet-500 to-purple-600' },
@@ -1235,7 +1238,7 @@ function PomodoroTimer() {
         <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/40 dark:bg-slate-700/30">
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => setCustomMinutes(Math.max(1, customMinutes - 5))}
+              onClick={() => updateCustomMinutes(customMinutes - 5)}
               className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-bold text-lg"
             >
               -
@@ -1250,16 +1253,22 @@ function PomodoroTimer() {
                 if (val === '' || val === '0') {
                   setCustomMinutes(1)
                 } else {
-                  setCustomMinutes(Math.min(120, parseInt(val)))
+                  const num = Math.min(120, parseInt(val))
+                  setCustomMinutes(num)
                 }
               }}
               onBlur={() => {
-                if (!customMinutes || customMinutes < 1) setCustomMinutes(1)
+                if (!customMinutes || customMinutes < 1) {
+                  setCustomMinutes(1)
+                  saveTimerSetting('pomodoroDuration', 1)
+                } else {
+                  saveTimerSetting('pomodoroDuration', customMinutes)
+                }
               }}
               className="input w-16 text-center font-bold text-lg"
             />
             <button 
-              onClick={() => setCustomMinutes(Math.min(120, customMinutes + 5))}
+              onClick={() => updateCustomMinutes(customMinutes + 5)}
               className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-bold text-lg"
             >
               +
