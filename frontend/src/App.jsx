@@ -1233,16 +1233,40 @@ function PomodoroTimer() {
         </div>
 
         <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/40 dark:bg-slate-700/30">
-          <input
-            type="number"
-            value={customMinutes}
-            onChange={(e) => setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))}
-            className="input w-20 text-center font-semibold"
-            min="1"
-            max="120"
-          />
-          <span className="text-sm text-slate-500 font-medium">minutes</span>
-          <button onClick={setCustom} className="btn btn-secondary ml-auto text-sm font-semibold">Set Custom</button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setCustomMinutes(Math.max(1, customMinutes - 5))}
+              className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-bold text-lg"
+            >
+              -
+            </button>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={customMinutes}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '')
+                if (val === '' || val === '0') {
+                  setCustomMinutes(1)
+                } else {
+                  setCustomMinutes(Math.min(120, parseInt(val)))
+                }
+              }}
+              onBlur={() => {
+                if (!customMinutes || customMinutes < 1) setCustomMinutes(1)
+              }}
+              className="input w-16 text-center font-bold text-lg"
+            />
+            <button 
+              onClick={() => setCustomMinutes(Math.min(120, customMinutes + 5))}
+              className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-bold text-lg"
+            >
+              +
+            </button>
+          </div>
+          <span className="text-sm text-slate-500 font-medium">min</span>
+          <button onClick={setCustom} className="btn btn-primary ml-auto text-sm font-semibold">Set</button>
         </div>
       </div>
 
