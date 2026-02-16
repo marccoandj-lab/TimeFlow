@@ -16,7 +16,7 @@ const useTheme = () => useContext(ThemeContext)
 const PWAContext = createContext()
 export const usePWA = () => useContext(PWAContext)
 
-const mobileViews = ['dashboard', 'tasks', 'timer', 'habits', 'profile']
+const mobileViews = ['dashboard', 'tasks', 'timer', 'habits', 'settings']
 
 function useSwipeNavigation(activeView, setActiveView, isMobile) {
   const touchStart = useRef({ x: 0, y: 0, time: 0 })
@@ -378,7 +378,6 @@ function MobileNav({ activeView, setActiveView }) {
     { id: 'tasks', icon: CheckSquare, label: 'Tasks' },
     { id: 'timer', icon: Timer, label: 'Focus' },
     { id: 'habits', icon: Target, label: 'Habits' },
-    { id: 'settings', icon: Settings, label: 'Settings' },
   ]
   
   return (
@@ -1753,7 +1752,12 @@ function AppContent() {
                   <button onClick={() => setDark(!dark)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl touch-target transition-colors">
                     {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-violet-500" />}
                   </button>
-                  <UserMenu onNavigate={setActiveView} />
+                  <button 
+                    onClick={() => setActiveView('settings')} 
+                    className={`p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl touch-target transition-colors ${activeView === 'settings' ? 'text-violet-600 dark:text-violet-400' : ''}`}
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             )}
