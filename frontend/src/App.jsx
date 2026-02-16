@@ -1094,6 +1094,10 @@ function PomodoroTimer() {
     const clampedValue = Math.max(1, Math.min(120, value))
     setCustomMinutes(clampedValue)
     saveTimerSetting('pomodoroDuration', clampedValue)
+    if (mode === 'custom' || mode === 'focus') {
+      setMinutes(clampedValue)
+      setSeconds(0)
+    }
   }
 
   const presets = [
@@ -1152,7 +1156,18 @@ function PomodoroTimer() {
   }
 
   const progress = () => {
-    const total = presets.find(p => p.label.toLowerCase() === mode)?.mins || customMinutes
+    let total
+    if (mode === 'custom') {
+      total = customMinutes
+    } else if (mode === 'focus') {
+      total = timerSettings.pomodoroDuration
+    } else if (mode === 'short') {
+      total = timerSettings.shortBreakDuration
+    } else if (mode === 'long') {
+      total = timerSettings.longBreakDuration
+    } else {
+      total = presets.find(p => p.label.toLowerCase() === mode)?.mins || customMinutes
+    }
     return 1 - (minutes + seconds / 60) / total
   }
 
