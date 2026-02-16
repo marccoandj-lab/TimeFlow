@@ -91,6 +91,8 @@ export function AuthProvider({ children }) {
 
   function logout() {
     if (!auth) return Promise.resolve()
+    localStorage.removeItem('timeflow_userId')
+    localStorage.removeItem('timeflow_userData')
     return signOut(auth)
   }
 

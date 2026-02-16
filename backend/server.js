@@ -591,14 +591,15 @@ app.delete('/api/notifications/:userId/task/:taskId', async (req, res) => {
       .collection('notifications')
       .where('relatedId', '==', taskId)
       .where('type', '==', 'task')
-      .where('status', '==', 'pending')
       .get();
     
     const deletePromises = snapshot.docs.map(doc => doc.ref.delete());
     await Promise.all(deletePromises);
     
+    console.log(`🗑️ Deleted ${snapshot.size} notifications for task ${taskId}`);
     res.json({ success: true, deleted: snapshot.size });
   } catch (error) {
+    console.error('Error deleting task notifications:', error);
     res.status(500).json({ error: 'Failed to delete task notifications' });
   }
 });
@@ -613,14 +614,15 @@ app.delete('/api/notifications/:userId/habit/:habitId', async (req, res) => {
       .collection('notifications')
       .where('relatedId', '==', habitId)
       .where('type', '==', 'habit')
-      .where('status', '==', 'pending')
       .get();
     
     const deletePromises = snapshot.docs.map(doc => doc.ref.delete());
     await Promise.all(deletePromises);
     
+    console.log(`🗑️ Deleted ${snapshot.size} notifications for habit ${habitId}`);
     res.json({ success: true, deleted: snapshot.size });
   } catch (error) {
+    console.error('Error deleting habit notifications:', error);
     res.status(500).json({ error: 'Failed to delete habit notifications' });
   }
 });

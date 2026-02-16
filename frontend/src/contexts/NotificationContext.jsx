@@ -432,6 +432,8 @@ export function NotificationProvider({ children }) {
   }
 
   const cancelTaskNotifications = async (taskId) => {
+    console.log('🗑️ Canceling all notifications for task:', taskId)
+    
     const notificationTimes = [60, 30, 15, 5, 1]
     for (const minutes of notificationTimes) {
       const notificationId = `${taskId}-${minutes}`
@@ -439,14 +441,17 @@ export function NotificationProvider({ children }) {
       if (timeoutId) {
         clearTimeout(timeoutId)
         scheduledNotificationsLocal.delete(notificationId)
+        console.log(`  ✓ Canceled local: ${notificationId}`)
       }
     }
 
     if (auth?.currentUser) {
       try {
-        await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/task/${taskId}`, {
+        const response = await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/task/${taskId}`, {
           method: 'DELETE'
         })
+        const data = await response.json()
+        console.log(`  ✓ Deleted ${data.deleted || 0} scheduled notifications from server`)
       } catch (error) {
         console.error('Error canceling task notifications:', error)
       }
@@ -454,6 +459,8 @@ export function NotificationProvider({ children }) {
   }
 
   const cancelHabitNotifications = async (habitId) => {
+    console.log('🗑️ Canceling all notifications for habit:', habitId)
+    
     const notificationTimes = [60, 30, 15, 5, 1]
     for (const minutes of notificationTimes) {
       const notificationId = `habit-${habitId}-${minutes}`
@@ -461,14 +468,17 @@ export function NotificationProvider({ children }) {
       if (timeoutId) {
         clearTimeout(timeoutId)
         scheduledNotificationsLocal.delete(notificationId)
+        console.log(`  ✓ Canceled local: ${notificationId}`)
       }
     }
 
     if (auth?.currentUser) {
       try {
-        await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/habit/${habitId}`, {
+        const response = await fetch(`${API_BASE}/notifications/${auth.currentUser.uid}/habit/${habitId}`, {
           method: 'DELETE'
         })
+        const data = await response.json()
+        console.log(`  ✓ Deleted ${data.deleted || 0} scheduled notifications from server`)
       } catch (error) {
         console.error('Error canceling habit notifications:', error)
       }
