@@ -988,12 +988,12 @@ function PomodoroTimer() {
       </div>
 
       <div className="card-glass p-6 sm:p-8">
-        <div className="flex gap-2 sm:gap-3 mb-8 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide justify-center">
+        <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-8">
           {presets.map(p => (
             <button
               key={p.label}
               onClick={() => selectPreset(p)}
-              className={`flex flex-col items-center gap-1.5 px-4 py-3 rounded-2xl transition-all min-w-[70px] touch-target ${
+              className={`flex flex-col items-center gap-1.5 py-3 px-2 sm:px-3 rounded-2xl transition-all touch-target ${
                 mode === p.label.toLowerCase()
                   ? `bg-gradient-to-br ${p.color} text-white shadow-lg scale-105`
                   : 'bg-white/60 dark:bg-slate-700/40 hover:bg-white dark:hover:bg-slate-700/60'
