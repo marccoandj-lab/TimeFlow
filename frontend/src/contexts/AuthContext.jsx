@@ -7,7 +7,8 @@ import {
   updateProfile,
   sendPasswordResetEmail,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -88,7 +89,7 @@ export function AuthProvider({ children }) {
   function loginWithGoogle() {
     if (!auth) throw new Error('Firebase not initialized')
     const provider = new GoogleAuthProvider()
-    return signInWithPopup(auth, provider)
+    return signInWithRedirect(auth, provider)
   }
 
   function logout() {
@@ -149,6 +150,10 @@ export function AuthProvider({ children }) {
       setError('Firebase not configured. Please add environment variables.')
       return
     }
+
+    getRedirectResult(auth).catch((err) => {
+      console.error('Google redirect error:', err)
+    })
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!isMountedRef.current) return
