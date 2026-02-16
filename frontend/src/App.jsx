@@ -1090,22 +1090,47 @@ function PomodoroTimer() {
     setTimerSettings(getTimerSettings())
   }
 
+  const getSettingKeyForMode = (modeName) => {
+    const mapping = {
+      focus: 'pomodoroDuration',
+      short: 'shortBreakDuration',
+      long: 'longBreakDuration',
+      study: 'studyDuration',
+      workout: 'workoutDuration'
+    }
+    return mapping[modeName] || 'pomodoroDuration'
+  }
+
+  const getDurationForMode = (modeName) => {
+    const mapping = {
+      focus: timerSettings.pomodoroDuration,
+      short: timerSettings.shortBreakDuration,
+      long: timerSettings.longBreakDuration,
+      study: timerSettings.studyDuration || 50,
+      workout: timerSettings.workoutDuration || 30
+    }
+    return mapping[modeName] || timerSettings.pomodoroDuration
+  }
+
   const updateCustomMinutes = (value) => {
     const clampedValue = Math.max(1, Math.min(120, value))
     setCustomMinutes(clampedValue)
-    saveTimerSetting('pomodoroDuration', clampedValue)
-    if (mode === 'custom' || mode === 'focus') {
-      setMinutes(clampedValue)
-      setSeconds(0)
-    }
+    const settingKey = getSettingKeyForMode(mode)
+    saveTimerSetting(settingKey, clampedValue)
+    setMinutes(clampedValue)
+    setSeconds(0)
   }
+
+  useEffect(() => {
+    setCustomMinutes(getDurationForMode(mode))
+  }, [mode, timerSettings])
 
   const presets = [
     { label: 'Focus', mins: timerSettings.pomodoroDuration, icon: Brain, desc: 'Deep work', color: 'from-violet-500 to-purple-600' },
     { label: 'Short', mins: timerSettings.shortBreakDuration, icon: Coffee, desc: 'Break', color: 'from-emerald-500 to-teal-600' },
     { label: 'Long', mins: timerSettings.longBreakDuration, icon: Zap, desc: 'Rest', color: 'from-amber-500 to-orange-600' },
-    { label: 'Study', mins: 50, icon: BookOpen, desc: 'Extended', color: 'from-blue-500 to-indigo-600' },
-    { label: 'Workout', mins: 30, icon: Dumbbell, desc: 'Exercise', color: 'from-rose-500 to-pink-600' },
+    { label: 'Study', mins: timerSettings.studyDuration || 50, icon: BookOpen, desc: 'Extended', color: 'from-blue-500 to-indigo-600' },
+    { label: 'Workout', mins: timerSettings.workoutDuration || 30, icon: Dumbbell, desc: 'Exercise', color: 'from-rose-500 to-pink-600' },
   ]
 
   useEffect(() => {
@@ -1138,36 +1163,19 @@ function PomodoroTimer() {
     setMinutes(preset.mins)
     setSeconds(0)
     setMode(preset.label.toLowerCase())
-    setIsRunning(false)
-  }
-
-  const setCustom = () => {
-    setMinutes(customMinutes)
-    setSeconds(0)
-    setMode('custom')
+    setCustomMinutes(preset.mins)
     setIsRunning(false)
   }
 
   const reset = () => {
-    const currentPreset = presets.find(p => p.label.toLowerCase() === mode)
-    setMinutes(currentPreset ? currentPreset.mins : customMinutes)
+    const duration = getDurationForMode(mode)
+    setMinutes(duration)
     setSeconds(0)
     setIsRunning(false)
   }
 
   const progress = () => {
-    let total
-    if (mode === 'custom') {
-      total = customMinutes
-    } else if (mode === 'focus') {
-      total = timerSettings.pomodoroDuration
-    } else if (mode === 'short') {
-      total = timerSettings.shortBreakDuration
-    } else if (mode === 'long') {
-      total = timerSettings.longBreakDuration
-    } else {
-      total = presets.find(p => p.label.toLowerCase() === mode)?.mins || customMinutes
-    }
+    const total = getDurationForMode(mode)
     return 1 - (minutes + seconds / 60) / total
   }
 
@@ -1273,11 +1281,14 @@ function PomodoroTimer() {
                 }
               }}
               onBlur={() => {
+                const settingKey = getSettingKeyForMode(mode)
                 if (!customMinutes || customMinutes < 1) {
                   setCustomMinutes(1)
-                  saveTimerSetting('pomodoroDuration', 1)
+                  saveTimerSetting(settingKey, 1)
+                  setMinutes(1)
                 } else {
-                  saveTimerSetting('pomodoroDuration', customMinutes)
+                  saveTimerSetting(settingKey, customMinutes)
+                  setMinutes(customMinutes)
                 }
               }}
               className="input w-16 text-center font-bold text-lg"
@@ -1290,7 +1301,16 @@ function PomodoroTimer() {
             </button>
           </div>
           <span className="text-sm text-slate-500 font-medium">min</span>
-          <button onClick={setCustom} className="btn btn-primary ml-auto text-sm font-semibold">Set</button>
+          <button 
+            onClick={() => {
+              setMinutes(customMinutes)
+              setSeconds(0)
+              setIsRunning(false)
+            }} 
+            className="btn btn-primary ml-auto text-sm font-semibold"
+          >
+            Apply
+          </button>
         </div>
       </div>
 

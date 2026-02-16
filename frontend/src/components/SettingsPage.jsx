@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useContext } from 'react'
 import { 
   Settings, Bell, Moon, Sun, Clock, Trash2,
-  ChevronRight, ToggleLeft, ToggleRight, Brain, Coffee, Zap
+  ChevronRight, ToggleLeft, ToggleRight, Brain, Coffee, Zap, BookOpen, Dumbbell
 } from 'lucide-react'
 import { useNotifications } from '../contexts/NotificationContext'
 
@@ -32,7 +32,9 @@ export const getTimerSettings = () => {
   return {
     pomodoroDuration: saved?.pomodoroDuration || 25,
     shortBreakDuration: saved?.shortBreakDuration || 5,
-    longBreakDuration: saved?.longBreakDuration || 15
+    longBreakDuration: saved?.longBreakDuration || 15,
+    studyDuration: saved?.studyDuration || 50,
+    workoutDuration: saved?.workoutDuration || 30
   }
 }
 
@@ -46,6 +48,8 @@ export default function SettingsPage({ onNavigate }) {
       pomodoroDuration: 25,
       shortBreakDuration: 5,
       longBreakDuration: 15,
+      studyDuration: 50,
+      workoutDuration: 30,
       dailyReminder: false,
       reminderTime: '09:00',
       reminderTimes: ['09:00']
@@ -120,7 +124,7 @@ export default function SettingsPage({ onNavigate }) {
       showSuccess('Reminder time updated!')
     }
     
-    if (key === 'pomodoroDuration' || key === 'shortBreakDuration' || key === 'longBreakDuration') {
+    if (key === 'pomodoroDuration' || key === 'shortBreakDuration' || key === 'longBreakDuration' || key === 'studyDuration' || key === 'workoutDuration') {
       showSuccess('Timer settings saved!')
     }
   }
@@ -319,6 +323,60 @@ export default function SettingsPage({ onNavigate }) {
                 <span className="w-14 text-center font-bold text-lg">{settings.longBreakDuration}m</span>
                 <button 
                   onClick={() => updateSettings('longBreakDuration', Math.min(30, settings.longBreakDuration + 5))}
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                  <BookOpen className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Study</span>
+                  <p className="text-xs text-gray-500">Extended learning session</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => updateSettings('studyDuration', Math.max(10, (settings.studyDuration || 50) - 5))}
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
+                >
+                  -
+                </button>
+                <span className="w-14 text-center font-bold text-lg">{settings.studyDuration || 50}m</span>
+                <button 
+                  onClick={() => updateSettings('studyDuration', Math.min(120, (settings.studyDuration || 50) + 5))}
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+                  <Dumbbell className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Workout</span>
+                  <p className="text-xs text-gray-500">Exercise session</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => updateSettings('workoutDuration', Math.max(5, (settings.workoutDuration || 30) - 5))}
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
+                >
+                  -
+                </button>
+                <span className="w-14 text-center font-bold text-lg">{settings.workoutDuration || 30}m</span>
+                <button 
+                  onClick={() => updateSettings('workoutDuration', Math.min(90, (settings.workoutDuration || 30) + 5))}
                   className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
                 >
                   +
