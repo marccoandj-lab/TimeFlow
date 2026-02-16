@@ -168,18 +168,18 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" 
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm animate-fade-in" 
         onClick={onClose} 
       />
       <div 
         ref={modalRef}
-        className={`relative z-10 w-full ${sizes[size]} ${isMobile ? 'mobile-modal animate-slide-up' : 'max-h-[85vh] rounded-2xl'} overflow-hidden bg-white dark:bg-gray-800 shadow-2xl`}
+        className={`relative z-10 w-full ${sizes[size]} ${isMobile ? 'mobile-modal animate-slide-up' : 'max-h-[85vh] rounded-3xl'} overflow-hidden bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200/50 dark:border-slate-700/50">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button 
             onClick={onClose} 
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors touch-target flex items-center justify-center"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors touch-target flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
@@ -193,11 +193,11 @@ function Modal({ isOpen, onClose, title, children, size = 'md' }) {
 function EmptyState({ icon: Icon, title, description, action }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center mb-3">
-        <Icon className="w-7 h-7 text-gray-400" />
+      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center mb-3">
+        <Icon className="w-7 h-7 text-slate-400" />
       </div>
-      <h3 className="text-base font-medium text-gray-900 dark:text-gray-100">{title}</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 mb-3">{description}</p>
+      <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200">{title}</h3>
+      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-3">{description}</p>
       {action}
     </div>
   )
@@ -266,22 +266,22 @@ function MobileNav({ activeView, setActiveView }) {
   ]
   
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 safe-area-bottom z-40">
-      <div className="flex items-center justify-around px-2 py-1">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200/50 dark:border-slate-800/50 safe-area-bottom z-40">
+      <div className="flex items-center justify-around px-2 py-1.5">
         {navItems.map(item => (
           <button
             key={item.id}
             onClick={() => setActiveView(item.id)}
-            className={`flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all touch-target relative ${
+            className={`flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all touch-target relative ${
               activeView === item.id 
-                ? 'text-indigo-600 dark:text-indigo-400' 
-                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                ? 'text-violet-600 dark:text-violet-400' 
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
-            <item.icon className={`w-5 h-5 ${activeView === item.id ? 'text-indigo-600 dark:text-indigo-400' : ''}`} />
+            <item.icon className={`w-5 h-5 transition-transform ${activeView === item.id ? 'scale-110' : ''}`} />
             <span className="text-[10px] font-medium mt-0.5">{item.label}</span>
             {activeView === item.id && (
-              <div className="absolute bottom-0 w-8 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full" />
+              <div className="absolute -top-0.5 w-8 h-1 bg-gradient-to-r from-violet-500 to-purple-500 rounded-full" />
             )}
           </button>
         ))}
@@ -302,12 +302,12 @@ function Sidebar({ activeView, setActiveView, collapsed }) {
   ]
 
   return (
-    <aside className={`${collapsed ? 'w-16' : 'w-60'} bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 flex flex-col transition-all duration-300 h-screen sticky top-0`}>
+    <aside className={`${collapsed ? 'w-16' : 'w-60'} bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-800/50 flex flex-col transition-all duration-300 h-screen sticky top-0`}>
       <div className="p-3 flex items-center gap-2">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30">
           <Sparkles className="w-5 h-5 text-white" />
         </div>
-        {!collapsed && <span className="font-bold text-lg">TimeFlow</span>}
+        {!collapsed && <span className="font-bold text-lg gradient-text">TimeFlow</span>}
       </div>
       
       <nav className="flex-1 p-2 space-y-1">
@@ -317,35 +317,35 @@ function Sidebar({ activeView, setActiveView, collapsed }) {
             onClick={() => setActiveView(item.id)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group relative touch-target ${
               activeView === item.id 
-                ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400' 
-                : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                ? 'bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/50 dark:to-purple-950/50 text-violet-600 dark:text-violet-400 shadow-sm' 
+                : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
             }`}
           >
-            <item.icon className={`w-5 h-5 flex-shrink-0 ${activeView === item.id ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}`} />
+            <item.icon className={`w-5 h-5 flex-shrink-0 transition-colors ${activeView === item.id ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`} />
             {!collapsed && (
               <div className="text-left">
                 <div className="font-medium text-sm">{item.label}</div>
-                <div className="text-xs text-gray-400 group-hover:text-gray-500">{item.desc}</div>
+                <div className="text-xs text-slate-400 group-hover:text-slate-500">{item.desc}</div>
               </div>
             )}
           </button>
         ))}
       </nav>
 
-      <div className="p-2 border-t border-gray-100 dark:border-gray-800">
+      <div className="p-2 border-t border-slate-200/50 dark:border-slate-800/50">
         <button
           onClick={() => setActiveView('settings')}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors touch-target ${activeView === 'settings' ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors touch-target ${activeView === 'settings' ? 'bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/50 dark:to-purple-950/50 text-violet-600 dark:text-violet-400' : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}
         >
-          <Settings className={`w-5 h-5 ${activeView === 'settings' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}`} />
+          <Settings className={`w-5 h-5 ${activeView === 'settings' ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400'}`} />
           {!collapsed && <span className="text-sm">Settings</span>}
         </button>
         
         <button
           onClick={() => setActiveView('profile')}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors touch-target ${activeView === 'profile' ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors touch-target ${activeView === 'profile' ? 'bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/50 dark:to-purple-950/50 text-violet-600 dark:text-violet-400' : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}`}
         >
-          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
             {currentUser?.photoURL ? (
               <img src={currentUser.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
             ) : (
@@ -359,31 +359,45 @@ function Sidebar({ activeView, setActiveView, collapsed }) {
   )
 }
 
-function StatCard({ icon: Icon, label, value, color, trend }) {
+function StatCard({ icon: Icon, label, value, color, trend, onClick }) {
   const colors = {
-    blue: 'from-blue-500 to-cyan-500',
-    green: 'from-emerald-500 to-teal-500',
-    red: 'from-red-500 to-rose-500',
-    purple: 'from-purple-500 to-indigo-500',
-    amber: 'from-amber-500 to-orange-500'
+    blue: 'from-blue-500 via-blue-600 to-indigo-600',
+    green: 'from-emerald-500 via-green-500 to-teal-600',
+    red: 'from-rose-500 via-red-500 to-pink-600',
+    purple: 'from-violet-500 via-purple-500 to-fuchsia-600',
+    amber: 'from-amber-500 via-orange-500 to-red-500'
+  }
+  const bgColors = {
+    blue: 'bg-blue-50 dark:bg-blue-950/30',
+    green: 'bg-emerald-50 dark:bg-emerald-950/30',
+    red: 'bg-rose-50 dark:bg-rose-950/30',
+    purple: 'bg-violet-50 dark:bg-violet-950/30',
+    amber: 'bg-amber-50 dark:bg-amber-950/30'
   }
   return (
-    <div className="card p-3 sm:p-4 group hover:shadow-lg transition-shadow">
+    <div 
+      onClick={onClick}
+      className={`card p-4 sm:p-5 group hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-none transition-all duration-300 cursor-pointer ${onClick ? 'hover:scale-[1.02] active:scale-[0.98]' : ''}`}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{label}</p>
-          <p className="text-xl sm:text-2xl font-bold">{value}</p>
-          {trend && <p className="text-xs text-emerald-500 mt-0.5">{trend}</p>}
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{label}</p>
+          <p className="text-2xl sm:text-3xl font-bold tracking-tight">{value}</p>
+          {trend && (
+            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" />{trend}
+            </p>
+          )}
         </div>
-        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${colors[color]} flex items-center justify-center opacity-90 group-hover:opacity-100 transition-opacity flex-shrink-0`}>
-          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+        <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br ${colors[color]} flex items-center justify-center shadow-lg ${bgColors[color]} group-hover:scale-110 transition-transform duration-300`}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
       </div>
     </div>
   )
 }
 
-function Dashboard() {
+function Dashboard({ onNavigate }) {
   const [stats, setStats] = useState(() => {
     const tasks = storage.get('tasks', [])
     const habits = storage.get('habits', [])
@@ -393,109 +407,203 @@ function Dashboard() {
       completedTasks: tasks.filter(t => t.status === 'completed').length,
       overdueTasks: tasks.filter(t => t.status !== 'completed' && t.dueDate && t.dueDate < today).length,
       completionRate: tasks.length > 0 ? Math.round((tasks.filter(t => t.status === 'completed').length / tasks.length) * 100) : 0,
-      habitsCompletedToday: habits.filter(h => h.lastCompleted?.startsWith(today)).length
+      habitsCompletedToday: habits.filter(h => h.lastCompleted?.startsWith(today)).length,
+      totalHabits: habits.length
     }
   })
   const [tasks, setTasks] = useState(() => storage.get('tasks', []).filter(t => t.status !== 'completed'))
   const [habits, setHabits] = useState(() => storage.get('habits', []))
+  const { scheduleHabitNotification, cancelHabitNotifications, permission, requestPermission } = useNotifications()
 
   useEffect(() => {
     Promise.all([api.stats(), api.tasks.list({ status: 'pending' }), api.habits.list()])
       .then(([statsData, tasksData, habitsData]) => {
-        setStats(statsData)
+        setStats({ ...statsData, totalHabits: habitsData.length })
         setTasks(tasksData)
         setHabits(habitsData)
       })
   }, [])
 
-  const upcomingTasks = tasks.filter(t => t.dueDate && !isPast(parseISO(t.dueDate))).slice(0, 5)
-  const overdueTasks = tasks.filter(t => t.dueDate && isPast(parseISO(t.dueDate)) && !isToday(parseISO(t.dueDate)))
+  const today = new Date().toISOString().split('T')[0]
+  const upcomingTasks = tasks.filter(t => t.dueDate && t.dueDate >= today).slice(0, 5)
+  const overdueTasks = tasks.filter(t => t.dueDate && t.dueDate < today && t.status !== 'completed')
+  const todayHabits = habits.filter(h => {
+    const lastCompleted = h.lastCompleted?.split('T')[0]
+    return lastCompleted !== today
+  })
+
+  const handleToggleTask = async (task) => {
+    const newStatus = task.status === 'completed' ? 'pending' : 'completed'
+    await api.tasks.update(task.id, { status: newStatus })
+    Promise.all([api.stats(), api.tasks.list({ status: 'pending' })])
+      .then(([statsData, tasksData]) => {
+        setStats(prev => ({ ...prev, ...statsData }))
+        setTasks(tasksData)
+      })
+  }
+
+  const handleCompleteHabit = async (habit) => {
+    try {
+      const updated = await api.habits.complete(habit.id)
+      setHabits(habits.map(h => h.id === habit.id ? updated : h))
+      setStats(prev => ({ ...prev, habitsCompletedToday: prev.habitsCompletedToday + 1 }))
+    } catch {
+      console.log('Already completed today')
+    }
+  }
 
   return (
-    <div className="space-y-4 pb-20 md:pb-4">
-      <div className="flex items-center justify-between mb-2">
+    <div className="space-y-5 pb-20 md:pb-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Welcome back!</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{format(new Date(), 'EEEE, MMMM d')}</p>
+          <h1 className="text-2xl font-bold tracking-tight">Welcome back!</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{format(new Date(), 'EEEE, MMMM d')}</p>
+        </div>
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+          <Sparkles className="w-6 h-6 text-white" />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <StatCard icon={CheckSquare} label="Tasks" value={stats.totalTasks} color="blue" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard icon={CheckSquare} label="Tasks" value={stats.totalTasks} color="blue" onClick={() => onNavigate?.('tasks')} />
         <StatCard icon={CheckCircle2} label="Done" value={stats.completedTasks} color="green" trend={stats.completionRate + '%'} />
         <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueTasks} color="red" />
-        <StatCard icon={Target} label="Habits" value={stats.habitsCompletedToday} color="purple" />
+        <StatCard icon={Target} label="Habits" value={`${stats.habitsCompletedToday}/${stats.totalHabits}`} color="purple" onClick={() => onNavigate?.('habits')} />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-3 sm:gap-4">
-        <div className="lg:col-span-2 card">
-          <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-            <h2 className="font-semibold text-sm flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500" /> Upcoming</h2>
-            {upcomingTasks.length > 0 && <span className="text-xs bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">{upcomingTasks.length}</span>}
+      {todayHabits.length > 0 && (
+        <div className="card-glass p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-sm flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                <Target className="w-4 h-4 text-white" />
+              </span>
+              Today's Habits
+            </h2>
+            <span className="text-xs font-medium text-slate-500">{todayHabits.length} remaining</span>
           </div>
-          <div className="p-2">
-            {upcomingTasks.length === 0 ? (
-              <EmptyState icon={CheckCircle2} title="All caught up!" description="No upcoming tasks" />
-            ) : (
-              <div className="space-y-1">
-                {upcomingTasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <Circle className={`w-2 h-2 rounded-full flex-shrink-0 ${task.priority === 'high' ? 'fill-red-500' : task.priority === 'low' ? 'fill-slate-400' : 'fill-amber-500'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{task.title}</p>
-                      <p className="text-xs text-gray-400">
-                        {task.dueDate && (isToday(parseISO(task.dueDate)) ? 'Today' : isTomorrow(parseISO(task.dueDate)) ? 'Tomorrow' : format(parseISO(task.dueDate), 'MMM d'))}
-                        {task.dueTime && <span className="ml-1">at {task.dueTime}</span>}
-                      </p>
-                    </div>
-                    <span className="text-xs px-2 py-1 rounded-lg flex-shrink-0 hidden sm:inline" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>{task.category}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="p-3 border-b border-gray-100 dark:border-gray-700">
-            <h2 className="font-semibold text-sm flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500" /> Habits</h2>
-          </div>
-          <div className="p-2">
-            {habits.length === 0 ? (
-              <EmptyState icon={Target} title="No habits yet" description="Start building routines" />
-            ) : (
-              <div className="space-y-1">
-                {habits.slice(0, 3).map(habit => (
-                  <div key={habit.id} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: habit.color }} />
-                    <span className="flex-1 text-sm font-medium truncate">{habit.name}</span>
-                    <span className="text-sm font-bold flex-shrink-0" style={{ color: habit.color }}>{habit.streak}🔥</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {overdueTasks.length > 0 && (
-        <div className="card border-red-200 dark:border-red-900/50">
-          <div className="p-3 border-b border-red-100 dark:border-red-900/30">
-            <h2 className="font-semibold text-sm text-red-600 flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Overdue ({overdueTasks.length})</h2>
-          </div>
-          <div className="p-2 space-y-1">
-            {overdueTasks.slice(0, 2).map(task => (
-              <div key={task.id} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-xl bg-red-50 dark:bg-red-950/20">
-                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{task.title}</p>
-                  <p className="text-xs text-red-500">Due {format(parseISO(task.dueDate), 'MMM d')}</p>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+            {todayHabits.slice(0, 4).map(habit => (
+              <button
+                key={habit.id}
+                onClick={() => handleCompleteHabit(habit)}
+                className="flex flex-col items-center gap-2 min-w-[72px] p-3 rounded-2xl bg-white/60 dark:bg-slate-700/40 hover:bg-white dark:hover:bg-slate-700/60 transition-all group"
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg transition-transform group-hover:scale-110"
+                  style={{ backgroundColor: habit.color }}
+                >
+                  {habit.name[0].toUpperCase()}
                 </div>
-              </div>
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate w-full text-center">{habit.name}</span>
+                <span className="text-[10px] text-slate-400">{habit.streak}🔥</span>
+              </button>
             ))}
+            {todayHabits.length > 4 && (
+              <button
+                onClick={() => onNavigate?.('habits')}
+                className="flex flex-col items-center justify-center gap-2 min-w-[72px] p-3 rounded-2xl bg-violet-100/50 dark:bg-violet-900/30 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-all"
+              >
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                  +{todayHabits.length - 4}
+                </div>
+                <span className="text-xs font-medium text-violet-600 dark:text-violet-400">More</span>
+              </button>
+            )}
           </div>
         </div>
       )}
+
+      {overdueTasks.length > 0 && (
+        <div className="card border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-sm text-rose-700 dark:text-rose-400 flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center animate-pulse-glow">
+                <AlertTriangle className="w-4 h-4 text-white" />
+              </span>
+              Overdue Tasks
+            </h2>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400">{overdueTasks.length}</span>
+          </div>
+          <div className="space-y-2">
+            {overdueTasks.slice(0, 3).map(task => (
+              <div
+                key={task.id}
+                onClick={() => handleToggleTask(task)}
+                className="flex items-center gap-3 p-3 rounded-xl bg-white/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/60 transition-all cursor-pointer group"
+              >
+                <div className={`task-checkbox ${task.status === 'completed' ? 'checked' : ''}`}>
+                  {task.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{task.title}</p>
+                  <p className="text-xs text-rose-500 font-medium">
+                    {format(parseISO(task.dueDate), 'MMM d')} • {Math.ceil((new Date().getTime() - new Date(task.dueDate).getTime()) / (1000 * 60 * 60 * 24))} days overdue
+                  </p>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-lg font-medium" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>
+                  {task.category}
+                </span>
+              </div>
+            ))}
+          </div>
+          {overdueTasks.length > 3 && (
+            <button
+              onClick={() => onNavigate?.('tasks')}
+              className="w-full mt-2 py-2 text-sm font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-colors"
+            >
+              View all {overdueTasks.length} overdue tasks
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="card-glass p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-sm flex items-center gap-2">
+            <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-white" />
+            </span>
+            Upcoming Tasks
+          </h2>
+          {upcomingTasks.length > 0 && (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-400">{upcomingTasks.length}</span>
+          )}
+        </div>
+        {upcomingTasks.length === 0 ? (
+          <div className="flex flex-col items-center py-6 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 flex items-center justify-center mb-3">
+              <CheckCircle2 className="w-7 h-7 text-emerald-500" />
+            </div>
+            <p className="font-medium text-slate-700 dark:text-slate-300">All caught up!</p>
+            <p className="text-xs text-slate-500 mt-1">No upcoming tasks</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {upcomingTasks.map(task => (
+              <div
+                key={task.id}
+                onClick={() => handleToggleTask(task)}
+                className="flex items-center gap-3 p-3 rounded-xl bg-white/60 dark:bg-slate-700/40 hover:bg-white dark:hover:bg-slate-700/60 transition-all cursor-pointer group"
+              >
+                <div className={`task-checkbox ${task.status === 'completed' ? 'checked' : ''}`}>
+                  {task.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-white" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{task.title}</p>
+                  <p className="text-xs text-slate-500">
+                    {task.dueDate && (isToday(parseISO(task.dueDate)) ? 'Today' : isTomorrow(parseISO(task.dueDate)) ? 'Tomorrow' : format(parseISO(task.dueDate), 'MMM d'))}
+                    {task.dueTime && <span className="ml-1 font-medium">at {task.dueTime}</span>}
+                  </p>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-lg font-medium hidden sm:inline" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>
+                  {task.category}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -810,11 +918,11 @@ function PomodoroTimer() {
   const [customMinutes, setCustomMinutes] = useState(25)
 
   const presets = [
-    { label: 'Focus', mins: 25, icon: Brain, desc: 'Deep work' },
-    { label: 'Short', mins: 5, icon: Coffee, desc: 'Break' },
-    { label: 'Long', mins: 15, icon: Zap, desc: 'Rest' },
-    { label: 'Study', mins: 50, icon: BookOpen, desc: 'Extended' },
-    { label: 'Workout', mins: 30, icon: Dumbbell, desc: 'Exercise' },
+    { label: 'Focus', mins: 25, icon: Brain, desc: 'Deep work', color: 'from-violet-500 to-purple-600' },
+    { label: 'Short', mins: 5, icon: Coffee, desc: 'Break', color: 'from-emerald-500 to-teal-600' },
+    { label: 'Long', mins: 15, icon: Zap, desc: 'Rest', color: 'from-amber-500 to-orange-600' },
+    { label: 'Study', mins: 50, icon: BookOpen, desc: 'Extended', color: 'from-blue-500 to-indigo-600' },
+    { label: 'Workout', mins: 30, icon: Dumbbell, desc: 'Exercise', color: 'from-rose-500 to-pink-600' },
   ]
 
   useEffect(() => {
@@ -870,65 +978,120 @@ function PomodoroTimer() {
   }
 
   const formatTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  const currentPreset = presets.find(p => p.label.toLowerCase() === mode)
 
   return (
-    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
-      <div className="text-center">
-        <h1 className="text-xl font-bold">Focus Timer</h1>
-        <p className="text-xs text-gray-500">Stay productive with timed sessions</p>
+    <div className="space-y-5 pb-20 md:pb-4">
+      <div className="text-center mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">Focus Timer</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Stay productive with timed sessions</p>
       </div>
 
-      <div className="card p-3 sm:p-4">
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+      <div className="card-glass p-6 sm:p-8">
+        <div className="flex gap-2 sm:gap-3 mb-8 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide justify-center">
           {presets.map(p => (
-            <button key={p.label} onClick={() => selectPreset(p)} className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all min-w-[60px] touch-target ${mode === p.label.toLowerCase() ? 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-200 dark:ring-indigo-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-              <p.icon className="w-4 h-4" />
-              <span className="text-xs font-medium">{p.label}</span>
-              <span className="text-[10px] text-gray-400">{p.mins}m</span>
+            <button
+              key={p.label}
+              onClick={() => selectPreset(p)}
+              className={`flex flex-col items-center gap-1.5 px-4 py-3 rounded-2xl transition-all min-w-[70px] touch-target ${
+                mode === p.label.toLowerCase()
+                  ? `bg-gradient-to-br ${p.color} text-white shadow-lg scale-105`
+                  : 'bg-white/60 dark:bg-slate-700/40 hover:bg-white dark:hover:bg-slate-700/60'
+              }`}
+            >
+              <p.icon className={`w-5 h-5 ${mode === p.label.toLowerCase() ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
+              <span className={`text-xs font-semibold ${mode === p.label.toLowerCase() ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`}>{p.label}</span>
+              <span className={`text-[10px] ${mode === p.label.toLowerCase() ? 'text-white/80' : 'text-slate-400'}`}>{p.mins}m</span>
             </button>
           ))}
         </div>
 
-        <div className="relative w-44 h-44 sm:w-52 sm:h-52 mx-auto mb-4">
-          <svg className="w-full h-full transform -rotate-90">
-            <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="6" className="text-gray-200 dark:text-gray-700" />
-            <circle cx="50%" cy="50%" r="45%" fill="none" stroke="url(#gradient)" strokeWidth="6" strokeDasharray={1000} strokeDashoffset={1000 * (1 - progress())} strokeLinecap="round" className="transition-all duration-1000" />
+        <div className="relative w-56 h-56 sm:w-64 sm:h-64 mx-auto mb-8">
+          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/30 blur-xl opacity-50" />
+          <svg className="w-full h-full progress-ring relative z-10">
+            <circle
+              cx="50%"
+              cy="50%"
+              r="45%"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="8"
+              className="text-slate-200 dark:text-slate-700"
+            />
+            <circle
+              cx="50%"
+              cy="50%"
+              r="45%"
+              fill="none"
+              stroke="url(#timerGradient)"
+              strokeWidth="8"
+              strokeDasharray={1000}
+              strokeDashoffset={1000 * (1 - progress())}
+              strokeLinecap="round"
+              className="transition-all duration-1000 drop-shadow-lg"
+            />
             <defs>
-              <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#6366f1" />
-                <stop offset="100%" stopColor="#8b5cf6" />
+              <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#8b5cf6" />
+                <stop offset="50%" stopColor="#a855f7" />
+                <stop offset="100%" stopColor="#c084fc" />
               </linearGradient>
             </defs>
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl sm:text-5xl font-bold tracking-tight">{formatTime}</span>
-            <span className="text-gray-400 text-sm mt-1 capitalize">{mode}</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+            <span className="timer-display text-5xl sm:text-6xl font-bold tracking-tight">{formatTime}</span>
+            <span className="text-slate-400 text-sm mt-2 font-medium capitalize">{mode}</span>
           </div>
         </div>
 
-        <div className="flex justify-center gap-3 mb-4">
-          <button onClick={() => setIsRunning(!isRunning)} className={`btn ${isRunning ? 'btn-secondary' : 'btn-primary'} flex items-center gap-2`}>
-            {isRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            {isRunning ? 'Pause' : 'Start'}
+        <div className="flex justify-center gap-3 mb-6">
+          <button
+            onClick={() => setIsRunning(!isRunning)}
+            className={`btn ${isRunning ? 'btn-secondary' : 'btn-primary'} px-8 py-3 rounded-2xl text-base font-semibold`}
+          >
+            {isRunning ? <><Pause className="w-5 h-5" /> Pause</> : <><Play className="w-5 h-5" /> Start</>}
           </button>
-          <button onClick={reset} className="btn btn-secondary flex items-center gap-2"><RotateCcw className="w-4 h-4" /></button>
+          <button onClick={reset} className="btn btn-secondary p-3 rounded-2xl">
+            <RotateCcw className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="flex items-center gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-          <input type="number" value={customMinutes} onChange={(e) => setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))} className="input w-20 text-center" min="1" max="120" />
-          <span className="text-sm text-gray-500">min</span>
-          <button onClick={setCustom} className="btn btn-secondary text-sm ml-auto">Set</button>
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/40 dark:bg-slate-700/30">
+          <input
+            type="number"
+            value={customMinutes}
+            onChange={(e) => setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+            className="input w-20 text-center font-semibold"
+            min="1"
+            max="120"
+          />
+          <span className="text-sm text-slate-500 font-medium">minutes</span>
+          <button onClick={setCustom} className="btn btn-secondary ml-auto text-sm font-semibold">Set Custom</button>
         </div>
       </div>
 
-      <div className="card p-3 sm:p-4">
+      <div className="card p-5">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-500">Sessions</p>
-            <p className="text-xl font-bold">{sessions}</p>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <TrendingUp className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 font-medium">Sessions Today</p>
+              <p className="text-2xl font-bold">{sessions}</p>
+            </div>
           </div>
-          <div className="flex gap-1">
-            {[...Array(4)].map((_, i) => <div key={i} className={`w-2.5 h-2.5 rounded-full ${i < sessions ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-700'}`} />)}
+          <div className="flex gap-2">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className={`w-3 h-8 rounded-full transition-all duration-300 ${
+                  i < sessions
+                    ? 'bg-gradient-to-t from-violet-500 to-purple-500 shadow-sm shadow-violet-500/30'
+                    : 'bg-slate-200 dark:bg-slate-700'
+                }`}
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -1224,17 +1387,17 @@ function NoteForm({ note, onClose }) {
 
 function InstallPrompt({ onInstall, onDismiss }) {
   return (
-    <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 z-50 animate-slide-up">
+    <div className="fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl shadow-xl border border-slate-200/50 dark:border-slate-700/50 p-4 z-50 animate-slide-up">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30">
           <Download className="w-5 h-5 text-white" />
         </div>
         <div className="flex-1">
           <h3 className="font-semibold text-sm">Install TimeFlow</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Add to home screen for quick access</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Add to home screen for quick access</p>
         </div>
-        <button onClick={onDismiss} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-          <X className="w-4 h-4 text-gray-400" />
+        <button onClick={onDismiss} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+          <X className="w-4 h-4 text-slate-400" />
         </button>
       </div>
       <div className="flex gap-2 mt-3">
@@ -1297,22 +1460,22 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-3">
-          <Sparkles className="w-6 h-6 text-white" />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg shadow-violet-500/30">
+          <Sparkles className="w-7 h-7 text-white" />
         </div>
-        <div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full" />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950 p-4">
-        <div className="text-red-500 text-center">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950 p-4">
+        <div className="text-rose-500 text-center">
           <p className="font-semibold">Configuration Error</p>
           <p className="text-sm mt-2">{error}</p>
-          <p className="text-xs mt-4 text-gray-500">Please check Firebase environment variables</p>
+          <p className="text-xs mt-4 text-slate-500">Please check Firebase environment variables</p>
         </div>
       </div>
     )
@@ -1345,7 +1508,7 @@ function AppContent() {
   return (
     <PWAContext.Provider value={{ deferredPrompt, showInstallPrompt }}>
       <ThemeContext.Provider value={{ dark, setDark }}>
-        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
           {!isMobile && (
             <Sidebar activeView={activeView} setActiveView={setActiveView} collapsed={sidebarCollapsed} />
           )}
@@ -1353,20 +1516,20 @@ function AppContent() {
             {isMobile && (
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-white" />
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                    <Sparkles className="w-5 h-5 text-white" />
                   </div>
-                  <span className="font-bold">TimeFlow</span>
+                  <span className="font-bold text-lg">TimeFlow</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setDark(!dark)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl touch-target">
-                    {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-indigo-500" />}
+                  <button onClick={() => setDark(!dark)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl touch-target transition-colors">
+                    {dark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-violet-500" />}
                   </button>
                   <UserMenu onNavigate={setActiveView} onLogout={handleLogout} />
                 </div>
               </div>
             )}
-            <View />
+            <View onNavigate={setActiveView} />
           </main>
           {isMobile && <MobileNav activeView={activeView} setActiveView={setActiveView} />}
           {showInstallPrompt && <InstallPrompt onInstall={handleInstall} onDismiss={handleDismissInstall} />}
