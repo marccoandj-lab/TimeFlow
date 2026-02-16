@@ -46,7 +46,7 @@ const saveDB = (data) => {
 
 const db = loadDB();
 
-async function sendPushNotification(fcmToken, title, body, data = {}) {
+async function sendPushNotification(fcmToken, title, body, data = {}, userId = null) {
   if (!fcmToken) {
     console.error('❌ No FCM token provided');
     return false;
@@ -115,8 +115,16 @@ async function sendPushNotification(fcmToken, title, body, data = {}) {
     console.error('❌ Push error:', error.message);
     console.error('   Error code:', error.code);
     console.error('   Token:', fcmToken.substring(0, 30) + '...');
-    if (error.code === 'messaging/registration-token-not-registered') {
-      console.log('⚠️ Token not registered - should be removed from database');
+    if (error.code === 'messaging/registration-token-not-registered' && userId) {
+      console.log(`🗑️ Removing invalid token for user ${userId}`);
+      try {
+        await firestore.collection('users').doc(userId).update({
+          fcmToken: firestore.FieldValue.delete(),
+          tokenInvalidatedAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.error('Failed to remove invalid token:', e.message);
+      }
     }
     return false;
   }
@@ -225,7 +233,8 @@ async function processScheduledNotifications() {
             userData.fcmToken,
             notif.title,
             notif.body,
-            { type: notif.type, id: notif.relatedId || '', tag: notif.tag || doc.id }
+            { type: notif.type, id: notif.relatedId || '', tag: notif.tag || doc.id },
+            userId
           );
           
           if (sent) {
@@ -524,7 +533,9 @@ app.post('/api/notifications/test-user/:userId', async (req, res) => {
     const result = await sendPushNotification(
       userData.fcmToken,
       title || '🧪 Test Notification',
-      body || 'This is a test from TimeFlow backend!'
+      body || 'This is a test from TimeFlow backend!',
+      {},
+      userId
     );
     
     res.json({ success: result, hasToken: true });
