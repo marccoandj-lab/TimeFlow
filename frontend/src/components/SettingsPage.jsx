@@ -56,15 +56,22 @@ export default function SettingsPage({ onNavigate }) {
 
   useEffect(() => {
     isMountedRef.current = true
+    
+    const loadSettings = () => {
+      const saved = storage.get('appSettings')
+      if (saved && isMountedRef.current) {
+        setSettings(prev => ({ ...prev, ...saved }))
+      }
+    }
+    
+    loadSettings()
+    
+    const handleFocus = () => loadSettings()
+    window.addEventListener('focus', handleFocus)
+    
     return () => {
       isMountedRef.current = false
-    }
-  }, [])
-
-  useEffect(() => {
-    const savedTheme = storage.get('theme')
-    if (savedTheme !== null && savedTheme !== settings.darkMode) {
-      updateSettings('darkMode', savedTheme, false)
+      window.removeEventListener('focus', handleFocus)
     }
   }, [])
 
