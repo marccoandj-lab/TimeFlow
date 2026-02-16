@@ -8,7 +8,7 @@ import {
   Settings, User, ChevronDown, Bell, BellOff, Download
 } from 'lucide-react'
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext'
-import SettingsPage from './components/SettingsPage'
+import SettingsPage, { getTimerSettings } from './components/SettingsPage'
 
 const API_BASE = '/api'
 const ThemeContext = createContext()
@@ -16,7 +16,7 @@ const useTheme = () => useContext(ThemeContext)
 const PWAContext = createContext()
 export const usePWA = () => useContext(PWAContext)
 
-const mobileViews = ['dashboard', 'tasks', 'timer', 'habits', 'settings']
+const mobileViews = ['dashboard', 'tasks', 'timer', 'habits']
 
 function useSwipeNavigation(activeView, setActiveView, isMobile) {
   const touchStart = useRef({ x: 0, y: 0, time: 0 })
@@ -1070,7 +1070,8 @@ function CalendarView() {
 }
 
 function PomodoroTimer() {
-  const [minutes, setMinutes] = useState(25)
+  const [timerSettings, setTimerSettings] = useState(() => getTimerSettings())
+  const [minutes, setMinutes] = useState(() => getTimerSettings().pomodoroDuration)
   const [seconds, setSeconds] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
   const [mode, setMode] = useState('focus')
@@ -1080,12 +1081,22 @@ function PomodoroTimer() {
     if (saved?.date === today) return saved.count
     return 0
   })
-  const [customMinutes, setCustomMinutes] = useState(25)
+  const [customMinutes, setCustomMinutes] = useState(() => getTimerSettings().pomodoroDuration)
+
+  useEffect(() => {
+    const checkSettings = () => {
+      const newSettings = getTimerSettings()
+      setTimerSettings(newSettings)
+      setCustomMinutes(newSettings.pomodoroDuration)
+    }
+    const interval = setInterval(checkSettings, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const presets = [
-    { label: 'Focus', mins: 25, icon: Brain, desc: 'Deep work', color: 'from-violet-500 to-purple-600' },
-    { label: 'Short', mins: 5, icon: Coffee, desc: 'Break', color: 'from-emerald-500 to-teal-600' },
-    { label: 'Long', mins: 15, icon: Zap, desc: 'Rest', color: 'from-amber-500 to-orange-600' },
+    { label: 'Focus', mins: timerSettings.pomodoroDuration, icon: Brain, desc: 'Deep work', color: 'from-violet-500 to-purple-600' },
+    { label: 'Short', mins: timerSettings.shortBreakDuration, icon: Coffee, desc: 'Break', color: 'from-emerald-500 to-teal-600' },
+    { label: 'Long', mins: timerSettings.longBreakDuration, icon: Zap, desc: 'Rest', color: 'from-amber-500 to-orange-600' },
     { label: 'Study', mins: 50, icon: BookOpen, desc: 'Extended', color: 'from-blue-500 to-indigo-600' },
     { label: 'Workout', mins: 30, icon: Dumbbell, desc: 'Exercise', color: 'from-rose-500 to-pink-600' },
   ]

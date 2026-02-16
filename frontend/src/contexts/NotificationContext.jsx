@@ -9,6 +9,7 @@ export function useNotifications() {
 }
 
 const scheduledNotificationsLocal = new Map()
+const dailyReminderTimeouts = new Map()
 const API_BASE = '/api'
 
 const getDeviceId = () => {
@@ -502,12 +503,114 @@ export function NotificationProvider({ children }) {
     }
   }
 
+  const scheduleDailyReminder = async (reminderTime) => {
+    console.log('🔔 Scheduling daily reminder for:', reminderTime)
+    
+    if (!reminderTime) return null
+    
+    if (Notification.permission !== 'granted') {
+      console.log('Permission not granted, requesting...')
+      const granted = await requestPermission()
+      if (!granted) {
+        console.error('❌ Notification permission denied')
+        return null
+      }
+    }
+
+    let currentToken = fcmToken
+    if (!currentToken && messagingInstance) {
+      currentToken = await registerFCMToken()
+    }
+
+    const deviceId = getDeviceId()
+    
+    await cancelDailyReminder()
+
+    const [hours, minutes] = reminderTime.split(':').map(Number)
+    const now = new Date()
+    const today = new Date(now)
+    today.setHours(hours, minutes, 0, 0)
+    
+    let notifyTime = today
+    if (notifyTime <= now) {
+      notifyTime = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+    }
+    
+    const delay = notifyTime.getTime() - now.getTime()
+    
+    console.log('📅 Daily reminder scheduled for:', notifyTime.toISOString())
+    console.log('⏰ Delay:', Math.round(delay / 1000 / 60), 'minutes')
+
+    if (currentToken) {
+      try {
+        const response = await fetch(`${API_BASE}/notifications/schedule`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: deviceId,
+            title: '📋 TimeFlow Daily Reminder',
+            body: 'Check your tasks and habits for today!',
+            scheduledFor: notifyTime.toISOString(),
+            type: 'daily',
+            relatedId: 'daily-reminder',
+            tag: 'daily-reminder',
+            recurring: true
+          })
+        })
+        
+        if (response.ok) {
+          console.log('✅ FCM daily reminder scheduled')
+        }
+      } catch (e) {
+        console.error('❌ FCM daily reminder error:', e)
+      }
+    }
+
+    if (delay < 2147483647) {
+      const timeoutId = setTimeout(() => {
+        showNotification('📋 TimeFlow Daily Reminder', {
+          body: 'Check your tasks and habits for today!',
+          tag: 'daily-reminder'
+        })
+        
+        scheduleDailyReminder(reminderTime)
+      }, delay)
+      dailyReminderTimeouts.set('daily-reminder', timeoutId)
+      console.log('✅ Local daily reminder scheduled')
+    }
+
+    return notifyTime
+  }
+
+  const cancelDailyReminder = async () => {
+    console.log('🗑️ Canceling daily reminder')
+    
+    const timeoutId = dailyReminderTimeouts.get('daily-reminder')
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+      dailyReminderTimeouts.delete('daily-reminder')
+      console.log('  ✓ Canceled local daily reminder')
+    }
+
+    const deviceId = getDeviceId()
+    try {
+      await fetch(`${API_BASE}/notifications/${deviceId}/daily`, {
+        method: 'DELETE'
+      })
+      console.log('  ✓ Canceled server daily reminder')
+    } catch (error) {
+      console.error('Error canceling daily reminder:', error)
+    }
+  }
+
   const value = {
     permission,
     fcmToken,
     requestPermission,
     scheduleTaskNotification,
     scheduleHabitNotification,
+    scheduleDailyReminder,
+    cancelDailyReminder,
     cancelNotification,
     cancelTaskNotifications,
     cancelHabitNotifications,

@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useContext } from 'react'
 import { 
-  Settings, Bell, Moon, Sun, Clock, Trash2, Download,
-  Volume2, VolumeX, Smartphone, Shield, HelpCircle,
-  Info, ChevronRight, ToggleLeft, ToggleRight
+  Settings, Bell, Moon, Sun, Clock, Trash2,
+  ChevronRight, ToggleLeft, ToggleRight, Brain, Coffee, Zap
 } from 'lucide-react'
 import { useNotifications } from '../contexts/NotificationContext'
 
@@ -28,23 +27,31 @@ const storage = {
   }
 }
 
-export default function SettingsPage() {
-  const { requestPermission, permission } = useNotifications()
+export const getTimerSettings = () => {
+  const saved = storage.get('appSettings')
+  return {
+    pomodoroDuration: saved?.pomodoroDuration || 25,
+    shortBreakDuration: saved?.shortBreakDuration || 5,
+    longBreakDuration: saved?.longBreakDuration || 15
+  }
+}
+
+export default function SettingsPage({ onNavigate }) {
+  const { requestPermission, permission, scheduleDailyReminder, cancelDailyReminder } = useNotifications()
   const [settings, setSettings] = useState(() => {
     const saved = storage.get('appSettings')
     return saved || {
       darkMode: false,
       notifications: true,
-      soundEffects: true,
       pomodoroDuration: 25,
       shortBreakDuration: 5,
       longBreakDuration: 15,
-      dailyReminder: true,
+      dailyReminder: false,
       reminderTime: '09:00',
-      language: 'en'
+      reminderTimes: ['09:00']
     }
   })
-  const [loading, setLoading] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
   const isMountedRef = useRef(true)
 
   useEffect(() => {
@@ -54,30 +61,76 @@ export default function SettingsPage() {
     }
   }, [])
 
-  function updateSettings(key, value) {
+  useEffect(() => {
+    const savedTheme = storage.get('theme')
+    if (savedTheme !== null && savedTheme !== settings.darkMode) {
+      updateSettings('darkMode', savedTheme, false)
+    }
+  }, [])
+
+  function showSuccess(msg) {
+    setSuccessMessage(msg)
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        setSuccessMessage('')
+      }
+    }, 2000)
+  }
+
+  async function updateSettings(key, value, saveToStorage = true) {
     const newSettings = { ...settings, [key]: value }
     if (isMountedRef.current) {
       setSettings(newSettings)
     }
-    storage.set('appSettings', newSettings)
-  }
-
-  function exportData() {
-    const data = {
-      settings: settings,
-      tasks: storage.get('tasks', []),
-      habits: storage.get('habits', []),
-      notes: storage.get('notes', []),
-      exportedAt: new Date().toISOString()
+    if (saveToStorage) {
+      storage.set('appSettings', newSettings)
     }
     
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `timeflow-backup-${new Date().toISOString().split('T')[0]}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (key === 'darkMode') {
+      storage.set('theme', value)
+      document.documentElement.classList.toggle('dark', value)
+    }
+    
+    if (key === 'dailyReminder') {
+      if (value) {
+        if (permission !== 'granted') {
+          const granted = await requestPermission()
+          if (!granted) {
+            showSuccess('Please enable notifications first')
+            return
+          }
+        }
+        await scheduleDailyReminder(newSettings.reminderTime)
+        showSuccess('Daily reminder enabled!')
+      } else {
+        await cancelDailyReminder()
+        showSuccess('Daily reminder disabled')
+      }
+    }
+    
+    if (key === 'reminderTime' && settings.dailyReminder) {
+      await scheduleDailyReminder(value)
+      showSuccess('Reminder time updated!')
+    }
+    
+    if (key === 'pomodoroDuration' || key === 'shortBreakDuration' || key === 'longBreakDuration') {
+      showSuccess('Timer settings saved!')
+    }
+  }
+
+  async function handleNotificationToggle() {
+    if (permission !== 'granted') {
+      const granted = await requestPermission()
+      if (granted) {
+        await updateSettings('notifications', true)
+        showSuccess('Notifications enabled!')
+      } else {
+        showSuccess('Permission denied')
+      }
+    } else {
+      await updateSettings('notifications', !settings.notifications)
+      showSuccess(settings.notifications ? 'Notifications disabled' : 'Notifications enabled!')
+    }
   }
 
   async function clearAllData() {
@@ -87,17 +140,10 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleNotificationToggle() {
-    if (permission !== 'granted') {
-      await requestPermission()
-    }
-    updateSettings('notifications', !settings.notifications)
-  }
-
   return (
     <div className="space-y-4 pb-20 md:pb-4 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
           <Settings className="w-5 h-5 text-white" />
         </div>
         <div>
@@ -154,29 +200,11 @@ export default function SettingsPage() {
             </button>
 
             <button 
-              onClick={() => updateSettings('soundEffects', !settings.soundEffects)}
-              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                {settings.soundEffects ? <Volume2 className="w-5 h-5 text-indigo-500" /> : <VolumeX className="w-5 h-5 text-gray-400" />}
-                <div className="text-left">
-                  <p className="font-medium text-sm">Sound Effects</p>
-                  <p className="text-xs text-gray-500">Play sounds for timer and actions</p>
-                </div>
-              </div>
-              {settings.soundEffects ? (
-                <ToggleRight className="w-8 h-8 text-indigo-500" />
-              ) : (
-                <ToggleLeft className="w-8 h-8 text-gray-400" />
-              )}
-            </button>
-
-            <button 
               onClick={() => updateSettings('dailyReminder', !settings.dailyReminder)}
               className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Smartphone className={`w-5 h-5 ${settings.dailyReminder ? 'text-indigo-500' : 'text-gray-400'}`} />
+                <Clock className={`w-5 h-5 ${settings.dailyReminder ? 'text-indigo-500' : 'text-gray-400'}`} />
                 <div className="text-left">
                   <p className="font-medium text-sm">Daily Reminder</p>
                   <p className="text-xs text-gray-500">Get reminded to check your tasks</p>
@@ -212,22 +240,25 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
               <div className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded bg-indigo-500 flex items-center justify-center">
-                  <span className="text-xs text-white font-bold">P</span>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                  <Brain className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-sm">Pomodoro Duration</span>
+                <div>
+                  <span className="text-sm font-medium">Focus Duration</span>
+                  <p className="text-xs text-gray-500">Pomodoro work session</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => updateSettings('pomodoroDuration', Math.max(1, settings.pomodoroDuration - 5))}
-                  className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500"
+                  onClick={() => updateSettings('pomodoroDuration', Math.max(5, settings.pomodoroDuration - 5))}
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
                 >
                   -
                 </button>
-                <span className="w-12 text-center font-medium">{settings.pomodoroDuration}m</span>
+                <span className="w-14 text-center font-bold text-lg">{settings.pomodoroDuration}m</span>
                 <button 
                   onClick={() => updateSettings('pomodoroDuration', Math.min(60, settings.pomodoroDuration + 5))}
-                  className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500"
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
                 >
                   +
                 </button>
@@ -236,22 +267,25 @@ export default function SettingsPage() {
 
             <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
               <div className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded bg-emerald-500 flex items-center justify-center">
-                  <span className="text-xs text-white font-bold">S</span>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                  <Coffee className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-sm">Short Break</span>
+                <div>
+                  <span className="text-sm font-medium">Short Break</span>
+                  <p className="text-xs text-gray-500">Quick rest between sessions</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => updateSettings('shortBreakDuration', Math.max(1, settings.shortBreakDuration - 1))}
-                  className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500"
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
                 >
                   -
                 </button>
-                <span className="w-12 text-center font-medium">{settings.shortBreakDuration}m</span>
+                <span className="w-14 text-center font-bold text-lg">{settings.shortBreakDuration}m</span>
                 <button 
                   onClick={() => updateSettings('shortBreakDuration', Math.min(15, settings.shortBreakDuration + 1))}
-                  className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500"
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
                 >
                   +
                 </button>
@@ -260,22 +294,25 @@ export default function SettingsPage() {
 
             <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
               <div className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded bg-amber-500 flex items-center justify-center">
-                  <span className="text-xs text-white font-bold">L</span>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-sm">Long Break</span>
+                <div>
+                  <span className="text-sm font-medium">Long Break</span>
+                  <p className="text-xs text-gray-500">Extended rest after 4 sessions</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => updateSettings('longBreakDuration', Math.max(1, settings.longBreakDuration - 5))}
-                  className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500"
+                  onClick={() => updateSettings('longBreakDuration', Math.max(5, settings.longBreakDuration - 5))}
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
                 >
                   -
                 </button>
-                <span className="w-12 text-center font-medium">{settings.longBreakDuration}m</span>
+                <span className="w-14 text-center font-bold text-lg">{settings.longBreakDuration}m</span>
                 <button 
                   onClick={() => updateSettings('longBreakDuration', Math.min(30, settings.longBreakDuration + 5))}
-                  className="w-7 h-7 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500"
+                  className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-500 font-medium"
                 >
                   +
                 </button>
@@ -285,21 +322,9 @@ export default function SettingsPage() {
         </div>
 
         <div className="p-4">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Data</h2>
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Storage</h2>
           
           <div className="space-y-2">
-            <button 
-              onClick={exportData}
-              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-            >
-              <Download className="w-5 h-5 text-gray-400" />
-              <div className="text-left">
-                <p className="font-medium text-sm">Export Data</p>
-                <p className="text-xs text-gray-500">Download your data as JSON</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 ml-auto" />
-            </button>
-
             <button 
               onClick={clearAllData}
               className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-red-600"
@@ -315,39 +340,25 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="card divide-y divide-gray-100 dark:divide-gray-700">
-        <div className="p-4">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">About</h2>
-          
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 p-3 rounded-xl">
-              <Info className="w-5 h-5 text-gray-400" />
-              <div className="text-left">
-                <p className="font-medium text-sm">Version</p>
-                <p className="text-xs text-gray-500">TimeFlow v1.0.0</p>
-              </div>
-            </div>
-
-            <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-              <Shield className="w-5 h-5 text-gray-400" />
-              <div className="text-left">
-                <p className="font-medium text-sm">Privacy Policy</p>
-                <p className="text-xs text-gray-500">How we handle your data</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 ml-auto" />
-            </button>
-
-            <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-              <HelpCircle className="w-5 h-5 text-gray-400" />
-              <div className="text-left">
-                <p className="font-medium text-sm">Help & Support</p>
-                <p className="text-xs text-gray-500">Get help with TimeFlow</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 ml-auto" />
-            </button>
+      <div className="card p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+            <Settings className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm">TimeFlow</p>
+            <p className="text-xs text-gray-500">Version 1.0.0</p>
           </div>
         </div>
       </div>
+      
+      {successMessage && (
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl shadow-lg z-50 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
