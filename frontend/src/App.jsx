@@ -508,6 +508,7 @@ function TasksView() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [successMessage, setSuccessMessage] = useState('')
+  const { cancelTaskNotifications } = useNotifications()
 
   const load = () => Promise.all([api.tasks.list({ search }), api.categories.list()]).then(([t, c]) => { setTasks(t); setCategories(c) })
   useEffect(() => { load() }, [search])
@@ -529,8 +530,12 @@ function TasksView() {
     load()
   }
 
-  const handleDelete = async (id) => {
-    if (confirm('Delete this task?')) { await api.tasks.delete(id); load() }
+  const handleDelete = async (task) => {
+    if (confirm('Delete this task?')) {
+      await cancelTaskNotifications(task.id)
+      await api.tasks.delete(task.id)
+      load()
+    }
   }
 
   return (
@@ -565,8 +570,8 @@ function TasksView() {
       ) : (
         <div className="space-y-2">
           {filteredTasks.map(task => (
-            <div key={task.id} className={`card p-3 flex items-center gap-3 group active:bg-gray-50 dark:active:bg-gray-700/50 transition-all ${task.status === 'completed' ? 'opacity-50' : ''}`}>
-              <button onClick={() => handleToggle(task)} className="touch-target flex items-center justify-center flex-shrink-0">
+            <div key={task.id} onClick={() => { setEditingTask(task); setShowModal(true) }} className={`card p-3 flex items-center gap-3 group active:bg-gray-50 dark:active:bg-gray-700/50 transition-all cursor-pointer ${task.status === 'completed' ? 'opacity-50' : ''}`}>
+              <button onClick={(e) => { e.stopPropagation(); handleToggle(task) }} className="touch-target flex items-center justify-center flex-shrink-0">
                 {task.status === 'completed' ? <CheckCircle2 className="w-6 h-6 text-emerald-500" /> : <Circle className={`w-6 h-6 ${task.priority === 'high' ? 'text-red-500' : task.priority === 'medium' ? 'text-amber-500' : 'text-slate-400'}`} />}
               </button>
               <div className="flex-1 min-w-0">
@@ -581,10 +586,7 @@ function TasksView() {
                 </div>
               </div>
               <span className="hidden sm:block text-xs px-2 py-1 rounded-lg flex-shrink-0" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>{task.category}</span>
-              <div className="flex gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { setEditingTask(task); setShowModal(true) }} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg touch-target"><Edit3 className="w-4 h-4" /></button>
-                <button onClick={() => handleDelete(task.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded-lg touch-target"><Trash2 className="w-4 h-4" /></button>
-              </div>
+              <button onClick={(e) => { e.stopPropagation(); handleDelete(task) }} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded-lg touch-target"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
         </div>
@@ -937,8 +939,9 @@ function PomodoroTimer() {
 function HabitsView() {
   const [habits, setHabits] = useState(() => storage.get('habits', []))
   const [showModal, setShowModal] = useState(false)
+  const [editingHabit, setEditingHabit] = useState(null)
   const [successMessage, setSuccessMessage] = useState('')
-  const { scheduleHabitNotification } = useNotifications()
+  const { scheduleHabitNotification, cancelHabitNotifications } = useNotifications()
 
   useEffect(() => { api.habits.list().then(setHabits) }, [])
 
@@ -955,8 +958,12 @@ function HabitsView() {
     } catch { alert('Already completed today!') }
   }
 
-  const handleDelete = async (id) => {
-    if (confirm('Delete this habit?')) { await api.habits.delete(id); setHabits(habits.filter(h => h.id !== id)) }
+  const handleDelete = async (habit) => {
+    if (confirm('Delete this habit?')) {
+      await cancelHabitNotifications(habit.id)
+      await api.habits.delete(habit.id)
+      setHabits(habits.filter(h => h.id !== habit.id))
+    }
   }
 
   return (
@@ -966,7 +973,7 @@ function HabitsView() {
           <h1 className="text-xl font-bold">Habits</h1>
           <p className="text-xs text-gray-500">Build consistent daily routines</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn btn-primary flex items-center gap-2 text-sm"><Plus className="w-4 h-4" /> Add</button>
+        <button onClick={() => { setEditingHabit(null); setShowModal(true) }} className="btn btn-primary flex items-center gap-2 text-sm"><Plus className="w-4 h-4" /> Add</button>
       </div>
 
       {habits.length === 0 ? (
@@ -974,28 +981,28 @@ function HabitsView() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
           {habits.map(h => (
-            <div key={h.id} className="card p-3 group active:bg-gray-50 dark:active:bg-gray-700/50 transition-colors">
+            <div key={h.id} onClick={() => { setEditingHabit(h); setShowModal(true) }} className="card p-3 group active:bg-gray-50 dark:active:bg-gray-700/50 transition-colors cursor-pointer">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: h.color }} />
                   <span className="font-medium text-sm truncate">{h.name}</span>
                 </div>
-                <button onClick={() => handleDelete(h.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-500 touch-target"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(h) }} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-500 touch-target"><Trash2 className="w-4 h-4" /></button>
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xl font-bold" style={{ color: h.color }}>{h.streak}</p>
                   <p className="text-xs text-gray-400">day streak</p>
                 </div>
-                <button onClick={() => handleComplete(h.id)} className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 flex items-center justify-center transition-colors touch-target"><CheckCircle2 className="w-6 h-6 text-emerald-600" /></button>
+                <button onClick={(e) => { e.stopPropagation(); handleComplete(h.id) }} className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 flex items-center justify-center transition-colors touch-target"><CheckCircle2 className="w-6 h-6 text-emerald-600" /></button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="New Habit">
-        <HabitForm onClose={() => { setShowModal(false); api.habits.list().then(setHabits); showSuccess('Habit created!') }} />
+      <Modal isOpen={showModal} onClose={() => { setShowModal(false); api.habits.list().then(setHabits) }} title={editingHabit ? 'Edit Habit' : 'New Habit'}>
+        <HabitForm habit={editingHabit} onClose={() => { setShowModal(false); api.habits.list().then(setHabits); showSuccess(editingHabit ? 'Habit updated!' : 'Habit created!') }} />
       </Modal>
       
       {successMessage && (
@@ -1010,9 +1017,14 @@ function HabitsView() {
   )
 }
 
-function HabitForm({ onClose }) {
-  const { scheduleHabitNotification, permission, requestPermission } = useNotifications()
-  const [form, setForm] = useState({ name: '', color: '#6366f1', reminder: true, reminderTime: '09:00' })
+function HabitForm({ habit, onClose }) {
+  const { scheduleHabitNotification, cancelHabitNotifications, permission, requestPermission } = useNotifications()
+  const [form, setForm] = useState({
+    name: habit?.name || '',
+    color: habit?.color || '#6366f1',
+    reminder: habit?.reminder ?? true,
+    reminderTime: habit?.reminderTime || '09:00'
+  })
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1']
@@ -1037,9 +1049,18 @@ function HabitForm({ onClose }) {
         await requestPermission()
       }
       
-      const newHabit = await api.habits.create(form)
-      if (form.reminder) {
-        await scheduleHabitNotification({ ...form, id: newHabit.id })
+      if (habit) {
+        await api.habits.update(habit.id, form)
+        if (form.reminder) {
+          await scheduleHabitNotification({ ...form, id: habit.id })
+        } else {
+          await cancelHabitNotifications(habit.id)
+        }
+      } else {
+        const newHabit = await api.habits.create(form)
+        if (form.reminder) {
+          await scheduleHabitNotification({ ...form, id: newHabit.id })
+        }
       }
       onClose()
     } catch (error) {
@@ -1081,7 +1102,7 @@ function HabitForm({ onClose }) {
       )}
       <div className="flex gap-3 pt-2">
         <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>Cancel</button>
-        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Creating...' : 'Create'}</button>
+        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : (habit ? 'Save' : 'Create')}</button>
       </div>
     </form>
   )

@@ -222,6 +222,19 @@ cron.schedule('* * * * *', () => {
   processScheduledNotifications();
 });
 
+setInterval(async () => {
+  try {
+    const response = await fetch(`http://localhost:${PORT}/api/health`);
+    console.log(`[${new Date().toISOString()}] Keep-alive ping: ${response.status}`);
+  } catch (error) {
+    console.log(`[${new Date().toISOString()}] Keep-alive ping failed: ${error.message}`);
+  }
+}, 5 * 60 * 1000);
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.get('/api/notifications/status/:userId', async (req, res) => {
   const { userId } = req.params;
   
