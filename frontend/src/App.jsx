@@ -227,6 +227,26 @@ const api = {
     }
   },
   notes: createApi('notes', 'notes'),
+  notifications: {
+    cleanup: async () => {
+      try {
+        const userId = localStorage.getItem('timeflow_userId')
+        if (userId) {
+          await fetch(`${API_BASE}/notifications/cleanup/${userId}`)
+        }
+      } catch {}
+    },
+    list: async () => {
+      try {
+        const userId = localStorage.getItem('timeflow_userId')
+        if (userId) {
+          const res = await fetch(`${API_BASE}/notifications/list/${userId}`)
+          return await res.json()
+        }
+      } catch {}
+      return { count: 0, notifications: [] }
+    }
+  },
   stats: async () => {
     const tasks = storage.get('tasks', [])
     const habits = storage.get('habits', [])
@@ -1684,6 +1704,12 @@ function AppContent() {
   }
 
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipeNavigation(activeView, setActiveView, isMobile)
+
+  useEffect(() => {
+    if (currentUser) {
+      api.notifications.cleanup()
+    }
+  }, [currentUser])
 
   const handleLogout = async () => {
     try {

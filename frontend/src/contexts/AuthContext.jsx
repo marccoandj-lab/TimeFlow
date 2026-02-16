@@ -147,6 +147,7 @@ export function AuthProvider({ children }) {
       setCurrentUser(user)
       setCachedUser(user)
       if (user) {
+        localStorage.setItem('timeflow_userId', user.uid)
         await fetchUserData(user.uid)
       } else {
         setUserData(null)

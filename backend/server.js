@@ -256,6 +256,95 @@ cron.schedule('* * * * *', () => {
   processScheduledNotifications();
 });
 
+cron.schedule('0 * * * *', async () => {
+  console.log(`[${new Date().toISOString()}] Cleaning up old notifications...`);
+  try {
+    const usersSnapshot = await firestore.collection('users').get();
+    
+    for (const userDoc of usersSnapshot.docs) {
+      const userId = userDoc.id;
+      
+      const oldNotifs = await firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .where('status', 'in', ['sent', 'superseded'])
+        .get();
+      
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      let deleted = 0;
+      
+      for (const doc of oldNotifs.docs) {
+        const data = doc.data();
+        const sentTime = data.sentAt || data.supersededAt || data.createdAt;
+        if (sentTime && new Date(sentTime).getTime() < oneDayAgo) {
+          await doc.ref.delete();
+          deleted++;
+        }
+      }
+      
+      if (deleted > 0) {
+        console.log(`  🧹 Deleted ${deleted} old notifications for user ${userId}`);
+      }
+    }
+  } catch (error) {
+    console.error('Cleanup error:', error.message);
+  }
+});
+
+app.get('/api/notifications/cleanup/:userId', async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    const snapshot = await firestore
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .get();
+    
+    let deleted = 0;
+    const now = Date.now();
+    const oneHourAgo = now - 60 * 60 * 1000;
+    
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const scheduledTime = new Date(data.scheduledFor).getTime();
+      
+      if (scheduledTime < oneHourAgo || data.status === 'sent' || data.status === 'superseded') {
+        await doc.ref.delete();
+        deleted++;
+      }
+    }
+    
+    res.json({ success: true, deleted, remaining: snapshot.size - deleted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/notifications/list/:userId', async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    const snapshot = await firestore
+      .collection('users')
+      .doc(userId)
+      .collection('notifications')
+      .orderBy('scheduledFor', 'desc')
+      .limit(20)
+      .get();
+    
+    const notifications = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    res.json({ count: notifications.length, notifications });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 setInterval(async () => {
   try {
     const response = await fetch(`http://localhost:${PORT}/api/health`);
