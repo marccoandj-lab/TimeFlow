@@ -151,18 +151,47 @@ export function AuthProvider({ children }) {
       return
     }
 
-    getRedirectResult(auth).catch((err) => {
+    getRedirectResult(auth).then(async (result) => {
+      if (result?.user) {
+        console.log('🔐 Google redirect success:', result.user.uid)
+        const userRef = doc(db, 'users', result.user.uid)
+        const userSnap = await getDoc(userRef)
+        if (!userSnap.exists()) {
+          console.log('📝 Creating new user document for Google login')
+          await setDoc(userRef, {
+            uid: result.user.uid,
+            email: result.user.email,
+            displayName: result.user.displayName,
+            photoURL: result.user.photoURL,
+            createdAt: serverTimestamp(),
+            settings: {
+              darkMode: false,
+              notifications: true,
+              pomodoroDuration: 25,
+              shortBreakDuration: 5,
+              longBreakDuration: 15
+            }
+          })
+        }
+      }
+    }).catch((err) => {
       console.error('Google redirect error:', err)
     })
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!isMountedRef.current) return
       
+      console.log('🔐 Auth state changed:', user ? user.uid : 'null')
+      
       setCurrentUser(user)
       setCachedUser(user)
       if (user) {
         localStorage.setItem('timeflow_userId', user.uid)
-        await fetchUserData(user.uid)
+        try {
+          await fetchUserData(user.uid)
+        } catch (err) {
+          console.error('fetchUserData error:', err)
+        }
       } else {
         setUserData(null)
         localStorage.removeItem('timeflow_userData')

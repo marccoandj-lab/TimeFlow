@@ -1734,7 +1734,7 @@ function AppContent() {
 
   useEffect(() => {
     if (currentUser) {
-      api.notifications.cleanup()
+      api.notifications.cleanup().catch(err => console.error('Cleanup error:', err))
     }
   }, [currentUser])
 
