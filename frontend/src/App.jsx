@@ -538,6 +538,7 @@ function StatCard({ icon: Icon, label, value, color, trend, onClick }) {
 }
 
 function Dashboard({ onNavigate }) {
+  const isMountedRef = useRef(true)
   const [stats, setStats] = useState(() => {
     const tasks = storage.get('tasks', [])
     const habits = storage.get('habits', [])
@@ -556,12 +557,18 @@ function Dashboard({ onNavigate }) {
   const { scheduleHabitNotification, cancelHabitNotifications, permission, requestPermission } = useNotifications()
 
   useEffect(() => {
+    isMountedRef.current = true
     Promise.all([api.stats(), api.tasks.list({ status: 'pending' }), api.habits.list()])
       .then(([statsData, tasksData, habitsData]) => {
-        setStats({ ...statsData, totalHabits: habitsData.length })
-        setTasks(tasksData)
-        setHabits(habitsData)
+        if (isMountedRef.current) {
+          setStats({ ...statsData, totalHabits: habitsData.length })
+          setTasks(tasksData)
+          setHabits(habitsData)
+        }
       })
+    return () => {
+      isMountedRef.current = false
+    }
   }, [])
 
   const today = new Date().toISOString().split('T')[0]
@@ -749,6 +756,7 @@ function Dashboard({ onNavigate }) {
 }
 
 function TasksView() {
+  const isMountedRef = useRef(true)
   const [tasks, setTasks] = useState(() => storage.get('tasks', []))
   const [categories, setCategories] = useState(() => storage.get('categories', []))
   const [showModal, setShowModal] = useState(false)
@@ -756,14 +764,34 @@ function TasksView() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [successMessage, setSuccessMessage] = useState('')
+  const successTimeoutRef = useRef(null)
   const { cancelTaskNotifications } = useNotifications()
 
-  const load = () => Promise.all([api.tasks.list({ search }), api.categories.list()]).then(([t, c]) => { setTasks(t); setCategories(c) })
-  useEffect(() => { load() }, [search])
+  const load = () => Promise.all([api.tasks.list({ search }), api.categories.list()]).then(([t, c]) => {
+    if (isMountedRef.current) {
+      setTasks(t)
+      setCategories(c)
+    }
+  })
+  
+  useEffect(() => {
+    isMountedRef.current = true
+    load()
+    return () => {
+      isMountedRef.current = false
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current)
+      }
+    }
+  }, [search])
 
   const showSuccess = (msg) => {
     setSuccessMessage(msg)
-    setTimeout(() => setSuccessMessage(''), 2000)
+    successTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setSuccessMessage('')
+      }
+    }, 2000)
   }
 
   const filteredTasks = tasks.filter(t => {
@@ -998,11 +1026,22 @@ function TaskForm({ task, categories, onClose }) {
 }
 
 function CalendarView() {
+  const isMountedRef = useRef(true)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [tasks, setTasks] = useState(() => storage.get('tasks', []))
   const [selectedDate, setSelectedDate] = useState(null)
 
-  useEffect(() => { api.tasks.list({}).then(setTasks) }, [])
+  useEffect(() => {
+    isMountedRef.current = true
+    api.tasks.list({}).then(data => {
+      if (isMountedRef.current) {
+        setTasks(data)
+      }
+    })
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
@@ -1266,17 +1305,36 @@ function PomodoroTimer() {
 }
 
 function HabitsView() {
+  const isMountedRef = useRef(true)
+  const successTimeoutRef = useRef(null)
   const [habits, setHabits] = useState(() => storage.get('habits', []))
   const [showModal, setShowModal] = useState(false)
   const [editingHabit, setEditingHabit] = useState(null)
   const [successMessage, setSuccessMessage] = useState('')
   const { scheduleHabitNotification, cancelHabitNotifications } = useNotifications()
 
-  useEffect(() => { api.habits.list().then(setHabits) }, [])
+  useEffect(() => {
+    isMountedRef.current = true
+    api.habits.list().then(data => {
+      if (isMountedRef.current) {
+        setHabits(data)
+      }
+    })
+    return () => {
+      isMountedRef.current = false
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const showSuccess = (msg) => {
     setSuccessMessage(msg)
-    setTimeout(() => setSuccessMessage(''), 2000)
+    successTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setSuccessMessage('')
+      }
+    }, 2000)
   }
 
   const handleComplete = async (id) => {
@@ -1469,16 +1527,35 @@ function HabitForm({ habit, onClose }) {
 }
 
 function NotesView() {
+  const isMountedRef = useRef(true)
+  const successTimeoutRef = useRef(null)
   const [notes, setNotes] = useState(() => storage.get('notes', []))
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [successMessage, setSuccessMessage] = useState('')
 
-  useEffect(() => { api.notes.list({}).then(setNotes) }, [])
+  useEffect(() => {
+    isMountedRef.current = true
+    api.notes.list({}).then(data => {
+      if (isMountedRef.current) {
+        setNotes(data)
+      }
+    })
+    return () => {
+      isMountedRef.current = false
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const showSuccess = (msg) => {
     setSuccessMessage(msg)
-    setTimeout(() => setSuccessMessage(''), 2000)
+    successTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setSuccessMessage('')
+      }
+    }, 2000)
   }
 
   const handleDelete = async (id) => {
@@ -1607,6 +1684,7 @@ function InstallPrompt({ onInstall, onDismiss }) {
 
 function AppContent() {
   const { currentUser, logout, loading, error } = useAuth()
+  const isMountedRef = useRef(true)
   const [dark, setDark] = useState(() => {
     const saved = storage.get('theme')
     if (saved !== null) return saved
@@ -1619,7 +1697,18 @@ function AppContent() {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false)
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const checkMobile = () => {
+      if (isMountedRef.current) {
+        setIsMobile(window.innerWidth < 768)
+      }
+    }
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)

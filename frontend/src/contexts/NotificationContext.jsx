@@ -17,11 +17,16 @@ export function NotificationProvider({ children }) {
   const [messagingInstance, setMessagingInstance] = useState(null)
   const [isReady, setIsReady] = useState(false)
   const registeringRef = useRef(false)
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
+    
     const init = async () => {
       if (typeof window !== 'undefined' && 'Notification' in window) {
-        setPermission(Notification.permission)
+        if (isMountedRef.current) {
+          setPermission(Notification.permission)
+        }
         console.log('📢 Notification permission:', Notification.permission)
       }
       
@@ -38,7 +43,9 @@ export function NotificationProvider({ children }) {
         }
         
         const msg = getMessaging(app)
-        setMessagingInstance(msg)
+        if (isMountedRef.current) {
+          setMessagingInstance(msg)
+        }
         console.log('✅ Firebase messaging initialized')
         
         onMessage(msg, (payload) => {
@@ -51,12 +58,18 @@ export function NotificationProvider({ children }) {
           })
         })
         
-        setIsReady(true)
+        if (isMountedRef.current) {
+          setIsReady(true)
+        }
       } catch (error) {
         console.error('❌ Messaging init error:', error)
       }
     }
     init()
+    
+    return () => {
+      isMountedRef.current = false
+    }
   }, [])
 
   const showNotification = useCallback((title, options = {}) => {
@@ -114,6 +127,11 @@ export function NotificationProvider({ children }) {
       
       const token = await getToken(messagingInstance, { vapidKey })
       
+      if (!isMountedRef.current) {
+        registeringRef.current = false
+        return null
+      }
+      
       if (token) {
         setFcmToken(token)
         console.log('✅ FCM token:', token.substring(0, 30) + '...')
@@ -167,7 +185,9 @@ export function NotificationProvider({ children }) {
     try {
       console.log('🔄 Requesting notification permission...')
       const result = await Notification.requestPermission()
-      setPermission(result)
+      if (isMountedRef.current) {
+        setPermission(result)
+      }
       console.log('📢 Permission result:', result)
       
       if (result === 'granted') {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { 
   User, Mail, Calendar, Trophy, Target, CheckCircle2, 
@@ -20,24 +20,31 @@ export default function ProfilePage() {
     habitsStreak: 0,
     totalFocusTime: 0
   })
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     if (userData) {
       setDisplayName(userData.displayName || '')
     }
     fetchStats()
+    return () => {
+      isMountedRef.current = false
+    }
   }, [userData])
 
   async function fetchStats() {
     try {
       const res = await fetch('/api/stats')
       const data = await res.json()
-      setStats({
-        totalTasks: data.totalTasks || 0,
-        completedTasks: data.completedTasks || 0,
-        habitsStreak: data.habitsCompletedToday || 0,
-        totalFocusTime: data.totalTimeThisWeek || 0
-      })
+      if (isMountedRef.current) {
+        setStats({
+          totalTasks: data.totalTasks || 0,
+          completedTasks: data.completedTasks || 0,
+          habitsStreak: data.habitsCompletedToday || 0,
+          totalFocusTime: data.totalTimeThisWeek || 0
+        })
+      }
     } catch (err) {
       console.error('Failed to fetch stats')
     }
@@ -47,11 +54,15 @@ export default function ProfilePage() {
     setLoading(true)
     try {
       await updateUserProfile({ displayName })
-      setEditing(false)
+      if (isMountedRef.current) {
+        setEditing(false)
+      }
     } catch (err) {
       console.error('Failed to update profile')
     }
-    setLoading(false)
+    if (isMountedRef.current) {
+      setLoading(false)
+    }
   }
 
   async function handleLogout() {

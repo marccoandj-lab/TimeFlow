@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -52,6 +52,8 @@ export function AuthProvider({ children }) {
   })
   const [loading, setLoading] = useState(!cachedUser)
   const [error, setError] = useState(null)
+  const isMountedRef = useRef(true)
+  const unsubscribesRef = useRef([])
 
   async function signup(email, password, displayName) {
     if (!auth) throw new Error('Firebase not initialized')
@@ -93,6 +95,7 @@ export function AuthProvider({ children }) {
     if (!auth) return Promise.resolve()
     localStorage.removeItem('timeflow_userId')
     localStorage.removeItem('timeflow_userData')
+    localStorage.removeItem('timeflow_cachedUser')
     return signOut(auth)
   }
 
@@ -124,7 +127,7 @@ export function AuthProvider({ children }) {
     try {
       const userRef = doc(db, 'users', uid)
       const userSnap = await getDoc(userRef)
-      if (userSnap.exists()) {
+      if (userSnap.exists() && isMountedRef.current) {
         const data = userSnap.data()
         setUserData(data)
         localStorage.setItem('timeflow_userData', JSON.stringify(data))
@@ -139,6 +142,8 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
+    isMountedRef.current = true
+    
     if (!auth) {
       setLoading(false)
       setError('Firebase not configured. Please add environment variables.')
@@ -146,6 +151,8 @@ export function AuthProvider({ children }) {
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!isMountedRef.current) return
+      
       setCurrentUser(user)
       setCachedUser(user)
       if (user) {
@@ -155,14 +162,24 @@ export function AuthProvider({ children }) {
         setUserData(null)
         localStorage.removeItem('timeflow_userData')
       }
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }, (err) => {
       console.error('Auth error:', err)
-      setError(err.message)
-      setLoading(false)
+      if (isMountedRef.current) {
+        setError(err.message)
+        setLoading(false)
+      }
     })
 
-    return unsubscribe
+    unsubscribesRef.current.push(unsubscribe)
+    
+    return () => {
+      isMountedRef.current = false
+      unsubscribesRef.current.forEach(unsub => unsub())
+      unsubscribesRef.current = []
+    }
   }, [])
 
   const value = {

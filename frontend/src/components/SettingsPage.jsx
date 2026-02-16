@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { 
   Settings, Bell, Moon, Sun, Clock, Trash2, Download,
@@ -47,16 +47,23 @@ export default function SettingsPage() {
     }
   })
   const [loading, setLoading] = useState(false)
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     if (userData?.settings) {
       setSettings(prev => ({ ...prev, ...userData.settings }))
+    }
+    return () => {
+      isMountedRef.current = false
     }
   }, [userData])
 
   async function updateSettings(key, value) {
     const newSettings = { ...settings, [key]: value }
-    setSettings(newSettings)
+    if (isMountedRef.current) {
+      setSettings(newSettings)
+    }
     storage.set('appSettings', newSettings)
     
     setLoading(true)
@@ -65,7 +72,9 @@ export default function SettingsPage() {
     } catch (err) {
       console.error('Failed to save settings')
     }
-    setLoading(false)
+    if (isMountedRef.current) {
+      setLoading(false)
+    }
   }
 
   function exportData() {
