@@ -371,13 +371,6 @@ function UserMenu({ onNavigate }) {
     </div>
   )
 }
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
 
 function MobileNav({ activeView, setActiveView }) {
   const navItems = [
