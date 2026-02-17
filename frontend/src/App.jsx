@@ -26,7 +26,7 @@ const useApi = () => {
   return userApi || api
 }
 
-const mobileViews = ['dashboard', 'tasks', 'calendar', 'timer', 'habits']
+const mobileViews = ['dashboard', 'tasks', 'calendar', 'timer', 'habits', 'overdue']
 
 function useSwipeNavigation(activeView, setActiveView, isMobile) {
   const touchStart = useRef({ x: 0, y: 0, time: 0 })
@@ -258,9 +258,23 @@ const api = {
     const tasks = storage.get('tasks', [])
     const habits = storage.get('habits', [])
     const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
     const totalTasks = tasks.length
     const completedTasks = tasks.filter(t => t.status === 'completed').length
-    const overdueTasks = tasks.filter(t => t.status !== 'completed' && t.dueDate && t.dueDate < today).length
+    
+    const overdueTasks = tasks.filter(t => {
+      if (!t.dueDate || t.status === 'completed') return false
+      const dueDateTime = new Date(t.dueDate)
+      if (t.dueTime) {
+        const [hours, minutes] = t.dueTime.split(':').map(Number)
+        dueDateTime.setHours(hours, minutes, 0, 0)
+      } else {
+        dueDateTime.setHours(23, 59, 59, 999)
+      }
+      const overdueThreshold = new Date(dueDateTime.getTime() + 45 * 60 * 1000)
+      return now > overdueThreshold
+    }).length
+    
     try {
       const res = await fetch(`${API_BASE}/stats`)
       return await res.json()
@@ -350,6 +364,44 @@ function EmptyState({ icon: Icon, title, description, action }) {
   )
 }
 
+const isTaskOverdue = (task) => {
+  if (!task.dueDate || task.status === 'completed') return false
+  
+  const now = new Date()
+  const dueDateTime = new Date(task.dueDate)
+  
+  if (task.dueTime) {
+    const [hours, minutes] = task.dueTime.split(':').map(Number)
+    dueDateTime.setHours(hours, minutes, 0, 0)
+  } else {
+    dueDateTime.setHours(23, 59, 59, 999)
+  }
+  
+  const overdueThreshold = new Date(dueDateTime.getTime() + 45 * 60 * 1000)
+  
+  return now > overdueThreshold
+}
+
+const getOverdueMinutes = (task) => {
+  if (!task.dueDate) return null
+  
+  const now = new Date()
+  const dueDateTime = new Date(task.dueDate)
+  
+  if (task.dueTime) {
+    const [hours, minutes] = task.dueTime.split(':').map(Number)
+    dueDateTime.setHours(hours, minutes, 0, 0)
+  } else {
+    dueDateTime.setHours(23, 59, 59, 999)
+  }
+  
+  const overdueThreshold = new Date(dueDateTime.getTime() + 45 * 60 * 1000)
+  const diffMs = now.getTime() - overdueThreshold.getTime()
+  
+  if (diffMs <= 0) return null
+  return Math.floor(diffMs / (1000 * 60))
+}
+
 function UserMenu({ onNavigate }) {
   const [isOpen, setIsOpen] = useState(false)
   
@@ -420,6 +472,7 @@ function Sidebar({ activeView, setActiveView, collapsed }) {
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', desc: 'Overview & stats' },
     { id: 'tasks', icon: CheckSquare, label: 'Tasks', desc: 'Manage your tasks' },
+    { id: 'overdue', icon: AlertTriangle, label: 'Overdue', desc: 'Past due tasks' },
     { id: 'calendar', icon: Calendar, label: 'Calendar', desc: 'Monthly view' },
     { id: 'timer', icon: Timer, label: 'Focus Timer', desc: 'Pomodoro technique' },
     { id: 'habits', icon: Target, label: 'Habits', desc: 'Build routines' },
@@ -518,7 +571,7 @@ function Dashboard({ onNavigate }) {
     return {
       totalTasks: tasks.length,
       completedTasks: tasks.filter(t => t.status === 'completed').length,
-      overdueTasks: tasks.filter(t => t.status !== 'completed' && t.dueDate && t.dueDate < today).length,
+      overdueTasks: tasks.filter(t => isTaskOverdue(t)).length,
       completionRate: tasks.length > 0 ? Math.round((tasks.filter(t => t.status === 'completed').length / tasks.length) * 100) : 0,
       habitsCompletedToday: habits.filter(h => h.lastCompleted?.startsWith(today)).length,
       totalHabits: habits.length
@@ -544,8 +597,8 @@ function Dashboard({ onNavigate }) {
   }, [])
 
   const today = new Date().toISOString().split('T')[0]
-  const upcomingTasks = tasks.filter(t => t.dueDate && t.dueDate >= today).slice(0, 5)
-  const overdueTasks = tasks.filter(t => t.dueDate && t.dueDate < today && t.status !== 'completed')
+  const upcomingTasks = tasks.filter(t => t.dueDate && t.dueDate >= today && !isTaskOverdue(t)).slice(0, 5)
+  const overdueTasks = tasks.filter(t => isTaskOverdue(t))
   const todayHabits = habits.filter(h => {
     const lastCompleted = h.lastCompleted?.split('T')[0]
     return lastCompleted !== today
@@ -586,7 +639,7 @@ function Dashboard({ onNavigate }) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard icon={CheckSquare} label="Tasks" value={stats.totalTasks} color="blue" onClick={() => onNavigate?.('tasks')} />
         <StatCard icon={CheckCircle2} label="Done" value={stats.completedTasks} color="green" trend={stats.completionRate + '%'} />
-        <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueTasks} color="red" />
+        <StatCard icon={AlertTriangle} label="Overdue" value={stats.overdueTasks} color="red" onClick={() => onNavigate?.('overdue')} />
         <StatCard icon={Target} label="Habits" value={`${stats.habitsCompletedToday}/${stats.totalHabits}`} color="purple" onClick={() => onNavigate?.('habits')} />
       </div>
 
@@ -634,7 +687,10 @@ function Dashboard({ onNavigate }) {
       )}
 
       {overdueTasks.length > 0 && (
-        <div className="card border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 p-4">
+        <div 
+          onClick={() => onNavigate?.('overdue')}
+          className="card border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 p-4 cursor-pointer hover:shadow-lg transition-all"
+        >
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-sm text-rose-700 dark:text-rose-400 flex items-center gap-2">
               <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center animate-pulse-glow">
@@ -645,35 +701,42 @@ function Dashboard({ onNavigate }) {
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400">{overdueTasks.length}</span>
           </div>
           <div className="space-y-2">
-            {overdueTasks.slice(0, 3).map(task => (
-              <div
-                key={task.id}
-                onClick={() => handleToggleTask(task)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-white/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800/60 transition-all cursor-pointer group"
-              >
-                <div className={`task-checkbox ${task.status === 'completed' ? 'checked' : ''}`}>
-                  {task.status === 'completed' && <CheckCircle2 className="w-4 h-4 text-white" />}
+            {overdueTasks.slice(0, 3).map(task => {
+              const now = new Date()
+              const dueDateTime = new Date(task.dueDate)
+              if (task.dueTime) {
+                const [hours, minutes] = task.dueTime.split(':').map(Number)
+                dueDateTime.setHours(hours, minutes, 0, 0)
+              }
+              const overdueThreshold = new Date(dueDateTime.getTime() + 45 * 60 * 1000)
+              const diffMs = now.getTime() - overdueThreshold.getTime()
+              const diffMins = Math.floor(diffMs / (1000 * 60))
+              const diffHours = Math.floor(diffMins / 60)
+              const diffDays = Math.floor(diffHours / 24)
+              
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-white/60 dark:bg-slate-800/40 group"
+                >
+                  <div className="w-5 h-5 rounded-full border-2 border-rose-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{task.title}</p>
+                    <p className="text-xs text-rose-500 font-medium">
+                      {diffDays > 0 ? `${diffDays}d overdue` : diffHours > 0 ? `${diffHours}h overdue` : `${diffMins}m overdue`}
+                    </p>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-lg font-medium" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>
+                    {task.category}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{task.title}</p>
-                  <p className="text-xs text-rose-500 font-medium">
-                    {format(parseISO(task.dueDate), 'MMM d')} • {Math.ceil((new Date().getTime() - new Date(task.dueDate).getTime()) / (1000 * 60 * 60 * 24))} days overdue
-                  </p>
-                </div>
-                <span className="text-xs px-2 py-1 rounded-lg font-medium" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>
-                  {task.category}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
-          {overdueTasks.length > 3 && (
-            <button
-              onClick={() => onNavigate?.('tasks')}
-              className="w-full mt-2 py-2 text-sm font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-colors"
-            >
-              View all {overdueTasks.length} overdue tasks
-            </button>
-          )}
+          <button className="w-full mt-2 py-2 text-sm font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-colors flex items-center justify-center gap-1">
+            <span>View all overdue tasks</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -1240,6 +1303,320 @@ function CalendarView() {
         </div>
       )}
     </div>
+  )
+}
+
+function OverdueView({ onNavigate }) {
+  const api = useApi()
+  const isMountedRef = useRef(true)
+  const [tasks, setTasks] = useState(() => storage.get('tasks', []))
+  const [categories, setCategories] = useState(() => storage.get('categories', []))
+  const [showModal, setShowModal] = useState(false)
+  const [editingTask, setEditingTask] = useState(null)
+  const [successMessage, setSuccessMessage] = useState('')
+  const successTimeoutRef = useRef(null)
+  const { cancelTaskNotifications } = useNotifications()
+
+  const load = () => Promise.all([api.tasks.list({}), api.categories.list()]).then(([t, c]) => {
+    if (isMountedRef.current) {
+      setTasks(t)
+      setCategories(c)
+    }
+  })
+  
+  useEffect(() => {
+    isMountedRef.current = true
+    load()
+    return () => {
+      isMountedRef.current = false
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const showSuccess = (msg) => {
+    setSuccessMessage(msg)
+    successTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setSuccessMessage('')
+      }
+    }, 2000)
+  }
+
+  const overdueTasks = tasks.filter(t => isTaskOverdue(t))
+
+  const formatOverdueTime = (task) => {
+    const now = new Date()
+    const dueDateTime = new Date(task.dueDate)
+    
+    if (task.dueTime) {
+      const [hours, minutes] = task.dueTime.split(':').map(Number)
+      dueDateTime.setHours(hours, minutes, 0, 0)
+    } else {
+      dueDateTime.setHours(23, 59, 59, 999)
+    }
+    
+    const overdueThreshold = new Date(dueDateTime.getTime() + 45 * 60 * 1000)
+    const diffMs = now.getTime() - overdueThreshold.getTime()
+    const diffMins = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+    
+    if (diffDays > 0) return `${diffDays}d overdue`
+    if (diffHours > 0) return `${diffHours}h overdue`
+    if (diffMins > 0) return `${diffMins}m overdue`
+    return 'Just overdue'
+  }
+
+  const handleToggle = async (task) => {
+    await api.tasks.update(task.id, { status: 'completed', completedAt: new Date().toISOString() })
+    load()
+    showSuccess('Task completed!')
+  }
+
+  const handleEdit = (task) => {
+    setEditingTask(task)
+    setShowModal(true)
+  }
+
+  const handleDelete = async (task) => {
+    if (confirm('Delete this task?')) {
+      await cancelTaskNotifications(task.id)
+      await api.tasks.delete(task.id)
+      load()
+      showSuccess('Task deleted!')
+    }
+  }
+
+  return (
+    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-rose-600 dark:text-rose-400">Overdue Tasks</h1>
+          <p className="text-xs text-gray-500">{overdueTasks.length} tasks need attention</p>
+        </div>
+        {overdueTasks.length > 0 && (
+          <div className="px-3 py-1.5 rounded-xl bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-sm font-semibold animate-pulse-glow">
+            {overdueTasks.length} overdue
+          </div>
+        )}
+      </div>
+
+      {overdueTasks.length === 0 ? (
+        <div className="card p-8 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+          </div>
+          <h3 className="font-semibold text-lg">No overdue tasks!</h3>
+          <p className="text-sm text-gray-500 mt-1">You're all caught up. Great job!</p>
+          <button onClick={() => onNavigate?.('dashboard')} className="btn btn-primary mt-4 text-sm">
+            Back to Dashboard
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {overdueTasks.map(task => (
+            <div 
+              key={task.id} 
+              className="card p-4 border-rose-200 dark:border-rose-900/50 bg-rose-50/30 dark:bg-rose-950/10"
+            >
+              <div className="flex items-start gap-3">
+                <button 
+                  onClick={() => handleToggle(task)}
+                  className="mt-0.5 w-6 h-6 rounded-full border-2 border-rose-400 hover:bg-rose-500 hover:border-rose-500 transition-colors flex items-center justify-center flex-shrink-0 group"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-transparent group-hover:text-white transition-colors" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{task.title}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-rose-500 font-semibold flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      {formatOverdueTime(task)}
+                    </span>
+                    {task.dueTime && (
+                      <span className="text-xs text-gray-500">
+                        Was due at {task.dueTime}
+                      </span>
+                    )}
+                  </div>
+                  {task.description && (
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{task.description}</p>
+                  )}
+                </div>
+                <span className="text-xs px-2 py-1 rounded-lg font-medium flex-shrink-0" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>
+                  {task.category}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-rose-100 dark:border-rose-900/30">
+                <button 
+                  onClick={() => handleEdit(task)}
+                  className="flex-1 btn btn-secondary text-sm py-2 flex items-center justify-center gap-1"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  Edit Task
+                </button>
+                <button 
+                  onClick={() => handleDelete(task)}
+                  className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal isOpen={showModal} onClose={() => { setShowModal(false); load() }} title="Edit Overdue Task">
+        <OverdueTaskForm 
+          task={editingTask} 
+          categories={categories} 
+          onClose={() => { setShowModal(false); load(); showSuccess('Task updated!') }} 
+        />
+      </Modal>
+      
+      {successMessage && (
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl shadow-lg z-50 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span className="text-sm font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function OverdueTaskForm({ task, categories, onClose }) {
+  const api = useApi()
+  const [form, setForm] = useState({
+    title: task?.title || '',
+    description: task?.description || '',
+    category: task?.category || 'general',
+    priority: task?.priority || 'medium',
+    dueDate: task?.dueDate?.split('T')[0] || '',
+    dueTime: task?.dueTime || '',
+    status: task?.status || 'pending',
+    markCompleted: false
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    
+    try {
+      const updateData = {
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        priority: form.priority,
+        dueDate: form.dueDate,
+        dueTime: form.dueTime,
+        status: form.markCompleted ? 'completed' : 'pending'
+      }
+      
+      if (form.markCompleted) {
+        updateData.completedAt = new Date().toISOString()
+      }
+      
+      await api.tasks.update(task.id, updateData)
+      onClose()
+    } catch (error) {
+      console.error('Error saving task:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-5" style={{ touchAction: 'pan-y' }}>
+      <div>
+        <label className="label">Task Title</label>
+        <input 
+          type="text" 
+          value={form.title} 
+          onChange={(e) => setForm({...form, title: e.target.value})} 
+          className="input" 
+        />
+      </div>
+      
+      <div>
+        <label className="label">Description</label>
+        <textarea 
+          value={form.description} 
+          onChange={(e) => setForm({...form, description: e.target.value})} 
+          className="input min-h-[80px] resize-none" 
+        />
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="label">Category</label>
+          <select value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="input">
+            <option value="general">General</option>
+            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Priority</label>
+          <select value={form.priority} onChange={(e) => setForm({...form, priority: e.target.value})} className="input">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="label">Due Date</label>
+          <input 
+            type="date" 
+            value={form.dueDate} 
+            onChange={(e) => setForm({...form, dueDate: e.target.value})} 
+            className="input" 
+          />
+        </div>
+        <div>
+          <label className="label">Time</label>
+          <input 
+            type="time" 
+            value={form.dueTime} 
+            onChange={(e) => setForm({...form, dueTime: e.target.value})} 
+            className="input" 
+          />
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/30">
+        <div className="flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+          <div>
+            <span className="text-sm font-medium">Mark as completed</span>
+            <p className="text-xs text-gray-500">If you actually finished this task</p>
+          </div>
+        </div>
+        <button 
+          type="button" 
+          onClick={() => setForm({...form, markCompleted: !form.markCompleted})} 
+          className={`w-12 h-7 rounded-full transition-colors ${form.markCompleted ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+        >
+          <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.markCompleted ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+      </div>
+      
+      <div className="flex gap-3 pt-4">
+        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>
+          {isSubmitting ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -1975,7 +2352,7 @@ function AppContent() {
   }, [])
 
   const getDirection = () => {
-    const mobileViewOrder = ['dashboard', 'tasks', 'calendar', 'timer', 'habits', 'notes', 'settings']
+    const mobileViewOrder = ['dashboard', 'tasks', 'calendar', 'timer', 'habits', 'notes', 'settings', 'overdue']
     const prevIndex = mobileViewOrder.indexOf(prevViewRef.current)
     const currentIndex = mobileViewOrder.indexOf(activeView)
     prevViewRef.current = activeView
@@ -2003,7 +2380,8 @@ function AppContent() {
     timer: PomodoroTimer, 
     habits: HabitsView, 
     notes: NotesView,
-    settings: SettingsPage
+    settings: SettingsPage,
+    overdue: OverdueView
   }
   const View = views[activeView] || Dashboard
 

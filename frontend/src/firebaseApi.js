@@ -192,9 +192,22 @@ const createUserApi = (userId) => {
       const habits = habitsSnap.docs.map(d => d.data())
       
       const today = new Date().toISOString().split('T')[0]
+      const now = new Date()
       const totalTasks = tasks.length
       const completedTasks = tasks.filter(t => t.status === 'completed').length
-      const overdueTasks = tasks.filter(t => t.status !== 'completed' && t.dueDate && t.dueDate < today).length
+      
+      const overdueTasks = tasks.filter(t => {
+        if (!t.dueDate || t.status === 'completed') return false
+        const dueDateTime = new Date(t.dueDate)
+        if (t.dueTime) {
+          const [hours, minutes] = t.dueTime.split(':').map(Number)
+          dueDateTime.setHours(hours, minutes, 0, 0)
+        } else {
+          dueDateTime.setHours(23, 59, 59, 999)
+        }
+        const overdueThreshold = new Date(dueDateTime.getTime() + 45 * 60 * 1000)
+        return now > overdueThreshold
+      }).length
       
       return {
         totalTasks,
