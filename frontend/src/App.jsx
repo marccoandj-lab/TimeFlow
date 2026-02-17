@@ -941,80 +941,79 @@ return (
             }
             const config = priorityConfig[task.priority] || priorityConfig.medium
             
-            return (
+return (
               <div 
                 key={task.id} 
                 onClick={() => { setEditingTask(task); setShowModal(true) }} 
                 className={`relative card overflow-hidden border-l-4 ${config.border} ${task.status === 'completed' ? 'opacity-60' : ''} group hover:shadow-lg ${config.glow} transition-all duration-300 cursor-pointer`}
               >
                 {isOverdue && task.status !== 'completed' && (
-                  <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
+                  <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden pointer-events-none">
                     <div className="absolute top-2 -right-6 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[10px] font-bold px-6 py-0.5 rotate-45 shadow-lg">
                       OVERDUE
                     </div>
                   </div>
                 )}
                 
-                <div className="p-4">
-                  <div className="flex items-start gap-3">
+                <div className="p-3 sm:p-4">
+                  <div className="flex items-start gap-2 sm:gap-3">
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleToggle(task) }} 
-                      className={`relative flex-shrink-0 w-7 h-7 rounded-full border-2 transition-all duration-300 flex items-center justify-center ${
+                      className={`relative flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 transition-all duration-300 flex items-center justify-center ${
                         task.status === 'completed' 
                           ? 'bg-gradient-to-r from-emerald-500 to-teal-500 border-transparent scale-110' 
                           : `border-2 hover:scale-110 ${task.priority === 'high' ? 'border-rose-400 hover:bg-rose-100' : task.priority === 'medium' ? 'border-amber-400 hover:bg-amber-100' : 'border-slate-300 hover:bg-slate-100'}`
                       }`}
                     >
                       {task.status === 'completed' && (
-                        <CheckCircle2 className="w-4 h-4 text-white animate-scale-in" />
+                        <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white animate-scale-in" />
                       )}
                     </button>
                     
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className={`font-medium text-sm ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                        <p className={`font-medium text-sm truncate ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
                           {task.title}
                         </p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${config.gradient} text-white font-medium ${config.pulse ? 'animate-pulse-subtle' : ''}`}>
+                        <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-gradient-to-r ${config.gradient} text-white font-medium flex-shrink-0 ${config.pulse ? 'animate-pulse-subtle' : ''}`}>
                           {config.icon} {task.priority}
                         </span>
                       </div>
                       
-                      <div className="flex items-center gap-3 mt-2 text-xs">
+                      <div className="flex items-center gap-2 sm:gap-3 mt-1.5 sm:mt-2 text-xs flex-wrap">
                         {task.dueDate && (
                           <span className={`flex items-center gap-1 ${isOverdue && task.status !== 'completed' ? 'text-rose-500 font-semibold' : 'text-slate-500'}`}>
-                            <Calendar className="w-3 h-3" />
-                            {isToday(parseISO(task.dueDate)) ? 'Today' : isTomorrow(parseISO(task.dueDate)) ? 'Tomorrow' : format(parseISO(task.dueDate), 'MMM d')}
-                            {task.dueTime && <span className="font-medium">at {task.dueTime}</span>}
+                            <Calendar className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{isToday(parseISO(task.dueDate)) ? 'Today' : isTomorrow(parseISO(task.dueDate)) ? 'Tomorrow' : format(parseISO(task.dueDate), 'MMM d')}</span>
+                            {task.dueTime && <span className="font-medium hidden sm:inline">at {task.dueTime}</span>}
                           </span>
                         )}
                         
                         {task.estimatedMinutes && (
-                          <span className="flex items-center gap-1 text-slate-400">
+                          <span className="flex items-center gap-1 text-slate-400 flex-shrink-0">
                             <Clock className="w-3 h-3" />
                             {task.estimatedMinutes}m
                           </span>
                         )}
+                        
+                        <span 
+                          className="text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg font-medium flex-shrink-0" 
+                          style={{ 
+                            color: categoryColors[task.category] || categoryColors.general, 
+                            backgroundColor: `${categoryColors[task.category] || categoryColors.general}20` 
+                          }}
+                        >
+                          {task.category}
+                        </span>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <span 
-                        className="text-xs px-2.5 py-1 rounded-lg font-medium shadow-sm" 
-                        style={{ 
-                          color: categoryColors[task.category] || categoryColors.general, 
-                          backgroundColor: `${categoryColors[task.category] || categoryColors.general}20` 
-                        }}
-                      >
-                        {task.category}
-                      </span>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDelete(task) }} 
-                        className="p-2 opacity-0 group-hover:opacity-100 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-rose-500 rounded-lg transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDelete(task) }} 
+                      className="p-1.5 sm:p-2 opacity-0 group-hover:opacity-100 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-rose-500 rounded-lg transition-all flex-shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2169,7 +2168,7 @@ return (
             const config = streakConfig[streakLevel]
             const progress = Math.min((h.streak / 30) * 100, 100)
             
-            return (
+return (
               <div 
                 key={h.id} 
                 onClick={() => { setEditingHabit(h); setShowModal(true) }} 
@@ -2180,33 +2179,33 @@ return (
                   style={{ background: `linear-gradient(135deg, ${h.color}33 0%, transparent 50%)` }}
                 />
                 
-                <div className="relative p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
+                <div className="relative p-3 sm:p-4">
+                  <div className="flex items-center justify-between mb-2 sm:mb-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
+                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg flex-shrink-0"
                         style={{ backgroundColor: h.color || '#6366f1' }}
                       >
                         {(h.name?.[0] || 'H').toUpperCase()}
                       </div>
-                      <div>
-                        <span className="font-semibold text-sm block truncate max-w-[120px]">{h.name}</span>
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gradient-to-r ${config.bg} text-white`}>
+                      <div className="min-w-0 flex-1">
+                        <span className="font-semibold text-sm truncate block">{h.name}</span>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gradient-to-r ${config.bg} text-white inline-block mt-0.5`}>
                           {config.emoji} {config.label}
                         </span>
                       </div>
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleDelete(h) }} 
-                      className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded-lg text-rose-500 transition-all"
+                      className="p-1 sm:p-1.5 opacity-0 group-hover:opacity-100 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded-lg text-rose-500 transition-all flex-shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                   
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-16 h-16">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="relative w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0">
                         <svg className="w-full h-full progress-ring" viewBox="0 0 36 36">
                           <circle
                             cx="18"
@@ -2230,10 +2229,10 @@ return (
                           />
                         </svg>
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-lg font-bold" style={{ color: h.color }}>{h.streak}</span>
+                          <span className="text-sm sm:text-lg font-bold" style={{ color: h.color }}>{h.streak}</span>
                         </div>
                       </div>
-                      <div>
+                      <div className="hidden sm:block">
                         <p className="text-xs text-gray-500">day streak</p>
                         <p className="text-[10px] text-gray-400">Best: {h.bestStreak || h.streak}</p>
                       </div>
@@ -2244,7 +2243,7 @@ return (
                         e.stopPropagation()
                         if (!isCompletedToday) handleComplete(h.id)
                       }} 
-                      className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 touch-target ${
+                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 flex-shrink-0 ${
                         isCompletedToday 
                           ? 'bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg shadow-emerald-500/30' 
                           : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 hover:scale-105'
@@ -2252,17 +2251,17 @@ return (
                       disabled={isCompletedToday}
                     >
                       {isCompletedToday ? (
-                        <CheckCircle2 className="w-7 h-7 text-white animate-scale-in" />
+                        <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7 text-white animate-scale-in" />
                       ) : (
                         <div className="text-slate-400 dark:text-slate-300">
-                          <Target className="w-6 h-6" />
+                          <Target className="w-5 h-5 sm:w-6 sm:h-6" />
                         </div>
                       )}
                     </button>
                   </div>
                   
                   {isCompletedToday && (
-                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                    <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100 dark:border-slate-700">
                       <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" />
                         Completed today!
