@@ -5,9 +5,11 @@ import {
   Plus, Trash2, Edit3, Search, Play, Pause, RotateCcw,
   CheckCircle2, Circle, AlertTriangle, Timer, X, Menu, Sparkles, TrendingUp,
   ChevronLeft, ChevronRight, Info, Zap, Coffee, Brain, Dumbbell, BookOpen, Home,
-  Settings, User, ChevronDown, Bell, BellOff, Download
+  Settings, User, ChevronDown, Bell, BellOff, Download, LogOut, Loader2
 } from 'lucide-react'
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext'
+import { useAuth } from './contexts/AuthContext'
+import AuthPage from './components/AuthPage'
 import SettingsPage, { getTimerSettings } from './components/SettingsPage'
 
 const API_BASE = '/api'
@@ -15,6 +17,13 @@ const ThemeContext = createContext()
 const useTheme = () => useContext(ThemeContext)
 const PWAContext = createContext()
 export const usePWA = () => useContext(PWAContext)
+const UserApiContext = createContext()
+export const useUserApi = () => useContext(UserApiContext)
+
+const useApi = () => {
+  const userApi = useUserApi()
+  return userApi || api
+}
 
 const mobileViews = ['dashboard', 'tasks', 'calendar', 'timer', 'habits']
 
@@ -135,7 +144,7 @@ const storage = {
   }
 }
 
-const createApi = (type, storageKey) => ({
+const createLocalApi = (type, storageKey) => ({
   list: async (params = {}) => {
     const cached = storage.get(storageKey, [])
     try {
@@ -182,7 +191,7 @@ const createApi = (type, storageKey) => ({
 })
 
 const api = {
-  tasks: createApi('tasks', 'tasks'),
+  tasks: createLocalApi('tasks', 'tasks'),
   categories: {
     list: async () => {
       const cached = storage.get('categories', [])
@@ -201,7 +210,7 @@ const api = {
     }
   },
   habits: {
-    ...createApi('habits', 'habits'),
+    ...createLocalApi('habits', 'habits'),
     complete: async (id) => {
       const cached = storage.get('habits', [])
       try {
@@ -223,7 +232,7 @@ const api = {
       }
     }
   },
-  notes: createApi('notes', 'notes'),
+  notes: createLocalApi('notes', 'notes'),
   notifications: {
     cleanup: async () => {
       try {
@@ -499,6 +508,7 @@ function StatCard({ icon: Icon, label, value, color, trend, onClick }) {
 }
 
 function Dashboard({ onNavigate }) {
+  const api = useApi()
   const isMountedRef = useRef(true)
   const [stats, setStats] = useState(() => {
     const tasks = storage.get('tasks', [])
@@ -717,6 +727,7 @@ function Dashboard({ onNavigate }) {
 }
 
 function TasksView() {
+  const api = useApi()
   const isMountedRef = useRef(true)
   const [tasks, setTasks] = useState(() => storage.get('tasks', []))
   const [categories, setCategories] = useState(() => storage.get('categories', []))
@@ -846,6 +857,7 @@ function TasksView() {
 }
 
 function TaskForm({ task, categories, onClose }) {
+  const api = useApi()
   const { scheduleTaskNotification, cancelTaskNotifications, permission, requestPermission } = useNotifications()
   const [form, setForm] = useState({
     title: task?.title || '',
@@ -987,6 +999,7 @@ function TaskForm({ task, categories, onClose }) {
 }
 
 function CalendarView() {
+  const api = useApi()
   const isMountedRef = useRef(true)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [tasks, setTasks] = useState(() => storage.get('tasks', []))
@@ -1526,6 +1539,7 @@ function PomodoroTimer() {
 }
 
 function HabitsView() {
+  const api = useApi()
   const isMountedRef = useRef(true)
   const successTimeoutRef = useRef(null)
   const [habits, setHabits] = useState(() => storage.get('habits', []))
@@ -1626,6 +1640,7 @@ function HabitsView() {
 }
 
 function HabitForm({ habit, onClose }) {
+  const api = useApi()
   const { scheduleHabitNotification, cancelHabitNotifications, permission, requestPermission } = useNotifications()
   const [form, setForm] = useState({
     name: habit?.name || '',
@@ -1748,6 +1763,7 @@ function HabitForm({ habit, onClose }) {
 }
 
 function NotesView() {
+  const api = useApi()
   const isMountedRef = useRef(true)
   const successTimeoutRef = useRef(null)
   const [notes, setNotes] = useState(() => storage.get('notes', []))
@@ -1830,6 +1846,7 @@ function NotesView() {
 }
 
 function NoteForm({ note, onClose }) {
+  const api = useApi()
   const [form, setForm] = useState({ title: note?.title || '', content: note?.content || '' })
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -1904,6 +1921,9 @@ function InstallPrompt({ onInstall, onDismiss }) {
 }
 
 function AppContent() {
+  const { currentUser, loading } = useAuth()
+  const userApi = currentUser ? createUserApi(currentUser.uid) : null
+  
   const isMountedRef = useRef(true)
   const [dark, setDark] = useState(() => {
     const saved = storage.get('theme')
@@ -1920,8 +1940,6 @@ function AppContent() {
 
   useEffect(() => {
     isMountedRef.current = true
-    const userId = localStorage.getItem('timeflow_deviceId') || `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    localStorage.setItem('timeflow_deviceId', userId)
     api.notifications.cleanup().catch(err => console.error('Cleanup error:', err))
     return () => {
       isMountedRef.current = false
@@ -1988,8 +2006,21 @@ function AppContent() {
   }
   const View = views[activeView] || Dashboard
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+      </div>
+    )
+  }
+
+  if (!currentUser) {
+    return <AuthPage />
+  }
+
   return (
-    <PWAContext.Provider value={{ deferredPrompt, showInstallPrompt }}>
+    <UserApiContext.Provider value={userApi}>
+      <PWAContext.Provider value={{ deferredPrompt, showInstallPrompt }}>
       <ThemeContext.Provider value={{ dark, setDark }}>
         <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
           {!isMobile && (
@@ -2033,6 +2064,7 @@ function AppContent() {
         </div>
       </ThemeContext.Provider>
     </PWAContext.Provider>
+  </UserApiContext.Provider>
   )
 }
 

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useContext } from 'react'
 import { 
   Settings, Bell, Moon, Sun, Clock, Trash2,
-  ChevronRight, ToggleLeft, ToggleRight, Brain, Coffee, Zap, BookOpen, Dumbbell
+  ChevronRight, ToggleLeft, ToggleRight, Brain, Coffee, Zap, BookOpen, Dumbbell, LogOut
 } from 'lucide-react'
 import { useNotifications } from '../contexts/NotificationContext'
+import { useAuth } from '../contexts/AuthContext'
 
 const storage = {
   get: (key, def = null) => {
@@ -40,6 +41,7 @@ export const getTimerSettings = () => {
 
 export default function SettingsPage({ onNavigate }) {
   const { requestPermission, permission, scheduleDailyReminder, cancelDailyReminder } = useNotifications()
+  const { currentUser, userData, logout } = useAuth()
   const [settings, setSettings] = useState(() => {
     const saved = storage.get('appSettings')
     return saved || {
@@ -162,6 +164,22 @@ export default function SettingsPage({ onNavigate }) {
           <p className="text-xs text-gray-500">Customize your experience</p>
         </div>
       </div>
+
+      {currentUser && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                {(userData?.displayName || currentUser.email || 'U')[0].toUpperCase()}
+              </div>
+              <div>
+                <p className="font-semibold">{userData?.displayName || 'User'}</p>
+                <p className="text-xs text-gray-500">{currentUser.email}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card divide-y divide-gray-100 dark:divide-gray-700">
         <div className="p-4">
@@ -403,6 +421,26 @@ export default function SettingsPage({ onNavigate }) {
             </button>
           </div>
         </div>
+
+        {currentUser && (
+          <div className="card p-4">
+            <button 
+              onClick={async () => {
+                if (confirm('Are you sure you want to sign out?')) {
+                  await logout()
+                }
+              }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-red-600"
+            >
+              <LogOut className="w-5 h-5" />
+              <div className="text-left">
+                <p className="font-medium text-sm">Sign Out</p>
+                <p className="text-xs text-red-400">Log out of your account</p>
+              </div>
+              <ChevronRight className="w-4 h-4 ml-auto" />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="card p-4">
