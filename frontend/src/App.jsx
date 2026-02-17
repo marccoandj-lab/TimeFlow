@@ -293,7 +293,7 @@ const api = {
 const priorityColors = { high: 'text-red-500 bg-red-50 dark:bg-red-950/30', medium: 'text-amber-500 bg-amber-50 dark:bg-amber-950/30', low: 'text-slate-400 bg-slate-50 dark:bg-slate-950/30' }
 const categoryColors = { Work: '#ef4444', Personal: '#10b981', Health: '#f59e0b', Learning: '#8b5cf6', Shopping: '#ec4899', general: '#6366f1' }
 
-function Modal({ isOpen, onClose, title, children }) {
+function Modal({ isOpen, onClose, title, children, variant = 'default' }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
   
   useEffect(() => {
@@ -306,21 +306,45 @@ function Modal({ isOpen, onClose, title, children }) {
   }, [isOpen])
   
   if (!isOpen) return null
+
+  const variants = {
+    default: {
+      headerBg: 'bg-gradient-to-r from-slate-50 to-white dark:from-slate-800 dark:to-slate-900',
+      iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600',
+      icon: Sparkles
+    },
+    task: {
+      headerBg: 'bg-gradient-to-r from-violet-50 via-purple-50 to-indigo-50 dark:from-violet-950/50 dark:via-purple-950/50 dark:to-indigo-950/50',
+      iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600',
+      icon: CheckSquare
+    },
+    habit: {
+      headerBg: 'bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-950/50 dark:via-teal-950/50 dark:to-cyan-950/50',
+      iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600',
+      icon: Target
+    }
+  }
+
+  const config = variants[variant] || variants.default
+  const IconComponent = config.icon
   
   if (isMobile) {
     return (
-      <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <h2 className="text-lg font-semibold">{title}</h2>
+      <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col animate-slide-up">
+        <div className={`flex items-center gap-3 p-4 ${config.headerBg} border-b border-slate-200/50 dark:border-slate-700/50 flex-shrink-0`}>
+          <div className={`w-10 h-10 rounded-2xl ${config.iconBg} flex items-center justify-center shadow-lg`}>
+            <IconComponent className="w-5 h-5 text-white" />
+          </div>
+          <h2 className="text-lg font-bold gradient-text flex-1">{title}</h2>
           <button 
             onClick={onClose} 
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+            className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
         <div 
-          className="flex-1 overflow-y-auto p-4" 
+          className="flex-1 overflow-y-auto overflow-x-hidden p-4" 
           style={{ 
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain',
@@ -334,16 +358,22 @@ function Modal({ isOpen, onClose, title, children }) {
   }
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
-            <X className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden">
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md animate-fade-in" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 max-h-[90vh] flex flex-col animate-slide-up overflow-hidden">
+        <div className={`flex items-center gap-3 p-5 ${config.headerBg} flex-shrink-0`}>
+          <div className={`w-11 h-11 rounded-2xl ${config.iconBg} flex items-center justify-center shadow-lg animate-float`}>
+            <IconComponent className="w-5 h-5 text-white" />
+          </div>
+          <h2 className="text-xl font-bold gradient-text flex-1">{title}</h2>
+          <button 
+            onClick={onClose} 
+            className="p-2.5 hover:bg-white/50 dark:hover:bg-slate-700/50 rounded-xl transition-colors"
+          >
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
-        <div className="p-4 overflow-y-auto flex-1">
+        <div className="p-5 overflow-y-auto overflow-x-hidden flex-1">
           {children}
         </div>
       </div>
@@ -993,7 +1023,7 @@ function TasksView() {
         </div>
       )}
 
-      <Modal isOpen={showModal} onClose={() => { setShowModal(false); load() }} title={editingTask ? 'Edit Task' : 'New Task'}>
+<Modal isOpen={showModal} onClose={() => { setShowModal(false); load() }} title={editingTask ? 'Edit Task' : 'New Task'} variant="task">
         <TaskForm task={editingTask} categories={categories} onClose={() => { setShowModal(false); load(); showSuccess(editingTask ? 'Task updated!' : 'Task created!') }} />
       </Modal>
       
@@ -1069,82 +1099,138 @@ function TaskForm({ task, categories, onClose }) {
     }
   }
 
+  const priorityOptions = [
+    { value: 'low', label: 'Low', icon: '💤', color: 'from-slate-400 to-slate-500', desc: 'No rush' },
+    { value: 'medium', label: 'Medium', icon: '⚡', color: 'from-amber-400 to-orange-500', desc: 'Normal' },
+    { value: 'high', label: 'High', icon: '🔥', color: 'from-rose-500 to-pink-500', desc: 'Urgent' }
+  ]
+
   return (
     <form onSubmit={submit} className="space-y-5" style={{ touchAction: 'pan-y' }}>
-      <div>
-        <label className="label">Task Title *</label>
+      <div className="relative">
+        <label className="label flex items-center gap-2">
+          <span className="w-5 h-5 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+            <Edit3 className="w-3 h-3 text-white" />
+          </span>
+          Task Title *
+        </label>
         <input 
           type="text" 
           value={form.title} 
           onChange={(e) => setForm({...form, title: e.target.value})} 
-          className={`input ${errors.title ? 'border-red-500' : ''}`} 
+          className={`input ${errors.title ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} 
           placeholder="What needs to be done?" 
           autoFocus 
         />
-        {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
+        {errors.title && <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{errors.title}</p>}
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="label">Category</label>
-          <select value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="input">
-            <option value="general">General</option>
-            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Priority</label>
-          <select value={form.priority} onChange={(e) => setForm({...form, priority: e.target.value})} className="input">
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
+      <div>
+        <label className="label flex items-center gap-2">
+          <span className="w-5 h-5 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-[10px] font-bold">P</span>
+          Priority Level
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {priorityOptions.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setForm({...form, priority: opt.value})}
+              className={`relative p-3 rounded-2xl border-2 transition-all text-center ${
+                form.priority === opt.value 
+                  ? `border-transparent bg-gradient-to-br ${opt.color} text-white shadow-lg scale-105` 
+                  : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+            >
+              <span className="text-lg block">{opt.icon}</span>
+              <span className={`text-xs font-semibold ${form.priority === opt.value ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`}>{opt.label}</span>
+              {form.priority === opt.value && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                </div>
+              )}
+            </button>
+          ))}
         </div>
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div>
+        <label className="label flex items-center gap-2">
+          <span className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ backgroundColor: categoryColors[form.category] || categoryColors.general }}>
+            <span className="text-white text-[8px] font-bold">{form.category?.[0]?.toUpperCase() || 'G'}</span>
+          </span>
+          Category
+        </label>
+        <select value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="input">
+          <option value="general">General</option>
+          {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+        </select>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="label">Due Date *</label>
+          <label className="label flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-violet-500" />
+            Due Date *
+          </label>
           <input 
             type="date" 
             value={form.dueDate} 
             onChange={(e) => setForm({...form, dueDate: e.target.value})} 
-            className={`input ${errors.dueDate ? 'border-red-500' : ''}`} 
+            className={`input ${errors.dueDate ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} 
           />
-          {errors.dueDate && <p className="text-red-500 text-xs mt-1">{errors.dueDate}</p>}
+          {errors.dueDate && <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{errors.dueDate}</p>}
         </div>
         <div>
-          <label className="label">Time *</label>
+          <label className="label flex items-center gap-2">
+            <Clock className="w-5 h-5 text-violet-500" />
+            Time *
+          </label>
           <input 
             type="time" 
             value={form.dueTime} 
             onChange={(e) => setForm({...form, dueTime: e.target.value})} 
-            className={`input ${errors.dueTime ? 'border-red-500' : ''}`} 
+            className={`input ${errors.dueTime ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} 
           />
-          {errors.dueTime && <p className="text-red-500 text-xs mt-1">{errors.dueTime}</p>}
+          {errors.dueTime && <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{errors.dueTime}</p>}
         </div>
       </div>
       
-      <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/30">
+      <div className={`flex items-center justify-between p-4 rounded-2xl transition-all ${
+        form.reminder 
+          ? 'bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30 border-2 border-violet-200 dark:border-violet-800' 
+          : 'bg-slate-50 dark:bg-slate-700/30'
+      }`}>
         <div className="flex items-center gap-3">
-          {form.reminder ? <Bell className="w-5 h-5 text-violet-500" /> : <BellOff className="w-5 h-5 text-slate-400" />}
-          <span className="text-sm font-medium">Reminder</span>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+            form.reminder ? 'bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/30' : 'bg-slate-200 dark:bg-slate-600'
+          }`}>
+            {form.reminder ? <Bell className="w-5 h-5 text-white" /> : <BellOff className="w-5 h-5 text-slate-500 dark:text-slate-400" />}
+          </div>
+          <div>
+            <span className="text-sm font-semibold block">Reminder</span>
+            <span className="text-xs text-slate-500">{form.reminder ? 'Get notified before due' : 'No notification'}</span>
+          </div>
         </div>
         <button 
           type="button" 
           onClick={() => setForm({...form, reminder: !form.reminder})} 
-          className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+          className={`w-12 h-7 rounded-full transition-all duration-300 ${form.reminder ? 'bg-gradient-to-r from-violet-500 to-purple-600 shadow-lg shadow-violet-500/30' : 'bg-slate-300 dark:bg-slate-600'}`}
         >
-          <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
+          <div className={`w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
       </div>
       
-      <div className="flex gap-3 pt-4">
-        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>
+      <div className="flex gap-3 pt-2">
+        <button type="button" onClick={onClose} className="btn btn-secondary flex-1 py-3.5" disabled={isSubmitting}>
           Cancel
         </button>
-        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : (task ? 'Save Task' : 'Create Task')}
+        <button type="submit" className="btn btn-primary flex-1 py-3.5 shadow-lg shadow-violet-500/25" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Saving...</span>
+          ) : (
+            <span className="flex items-center gap-2">{task ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {task ? 'Save Task' : 'Create Task'}</span>
+          )}
         </button>
       </div>
     </form>
@@ -2190,7 +2276,7 @@ function HabitsView() {
         </div>
       )}
 
-      <Modal isOpen={showModal} onClose={() => { setShowModal(false); api.habits.list().then(setHabits) }} title={editingHabit ? 'Edit Habit' : 'New Habit'}>
+<Modal isOpen={showModal} onClose={() => { setShowModal(false); api.habits.list().then(setHabits) }} title={editingHabit ? 'Edit Habit' : 'New Habit'} variant="habit">
         <HabitForm habit={editingHabit} onClose={() => { setShowModal(false); api.habits.list().then(setHabits); showSuccess(editingHabit ? 'Habit updated!' : 'Habit created!') }} />
       </Modal>
       
@@ -2209,9 +2295,10 @@ function HabitsView() {
 function HabitForm({ habit, onClose }) {
   const api = useApi()
   const { scheduleHabitNotification, cancelHabitNotifications, permission, requestPermission } = useNotifications()
-  const [form, setForm] = useState({
+const [form, setForm] = useState({
     name: habit?.name || '',
     color: habit?.color || '#6366f1',
+    icon: habit?.icon || '💪',
     reminder: habit?.reminder ?? true,
     reminderTime: habit?.reminderTime || '09:00'
   })
@@ -2260,69 +2347,126 @@ function HabitForm({ habit, onClose }) {
     }
   }
 
+const habitIcons = ['💪', '📚', '🧘', '🏃', '💧', '🎯', '✨', '🍎']
+  
   return (
     <form onSubmit={submit} className="space-y-5" style={{ touchAction: 'pan-y' }}>
-      <div>
-        <label className="label">Habit Name *</label>
+      <div className="relative">
+        <label className="label flex items-center gap-2">
+          <span className="w-5 h-5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+            <Edit3 className="w-3 h-3 text-white" />
+          </span>
+          Habit Name *
+        </label>
         <input 
           type="text" 
           value={form.name} 
           onChange={(e) => setForm({...form, name: e.target.value})} 
-          className={`input ${errors.name ? 'border-red-500' : ''}`} 
+          className={`input ${errors.name ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} 
           placeholder="e.g., Exercise, Read, Meditate" 
           autoFocus 
         />
-        {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+        {errors.name && <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{errors.name}</p>}
       </div>
       
       <div>
-        <label className="label">Color</label>
+        <label className="label flex items-center gap-2">
+          <span className="w-5 h-5 rounded-lg" style={{ backgroundColor: form.color }}>
+            <span className="flex items-center justify-center w-full h-full text-white text-[8px] font-bold">{form.name?.[0]?.toUpperCase() || 'H'}</span>
+          </span>
+          Choose Color
+        </label>
         <div className="flex gap-3 flex-wrap">
           {colors.map(c => (
             <button 
               type="button" 
               key={c} 
               onClick={() => setForm({...form, color: c})} 
-              className={`w-10 h-10 rounded-full transition-all ${form.color === c ? 'ring-2 ring-offset-2 ring-violet-500 scale-110' : 'hover:scale-105'}`} 
+              className={`w-12 h-12 rounded-2xl transition-all ${form.color === c ? 'ring-2 ring-offset-2 ring-emerald-500 scale-110 shadow-lg' : 'hover:scale-105'} flex items-center justify-center`}
               style={{ backgroundColor: c }} 
-            />
+            >
+              {form.color === c && <CheckCircle2 className="w-5 h-5 text-white" />}
+            </button>
           ))}
         </div>
       </div>
       
-      <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/30">
+      <div>
+        <label className="label flex items-center gap-2">
+          <span className="w-5 h-5 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-[10px] font-bold">
+            ✨
+          </span>
+          Icon
+        </label>
+        <div className="flex gap-2 flex-wrap">
+          {habitIcons.map(icon => (
+            <button
+              type="button"
+              key={icon}
+              onClick={() => setForm({...form, icon})}
+              className={`w-12 h-12 rounded-2xl text-xl flex items-center justify-center transition-all ${
+                form.icon === icon 
+                  ? 'bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 ring-2 ring-emerald-500 scale-105' 
+                  : 'bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              {icon}
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      <div className={`flex items-center justify-between p-4 rounded-2xl transition-all ${
+        form.reminder 
+          ? 'bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border-2 border-emerald-200 dark:border-emerald-800' 
+          : 'bg-slate-50 dark:bg-slate-700/30'
+      }`}>
         <div className="flex items-center gap-3">
-          {form.reminder ? <Bell className="w-5 h-5 text-violet-500" /> : <BellOff className="w-5 h-5 text-slate-400" />}
-          <span className="text-sm font-medium">Daily Reminder</span>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+            form.reminder ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30' : 'bg-slate-200 dark:bg-slate-600'
+          }`}>
+            {form.reminder ? <Bell className="w-5 h-5 text-white" /> : <BellOff className="w-5 h-5 text-slate-500 dark:text-slate-400" />}
+          </div>
+          <div>
+            <span className="text-sm font-semibold block">Daily Reminder</span>
+            <span className="text-xs text-slate-500">{form.reminder ? 'Get notified daily' : 'No notification'}</span>
+          </div>
         </div>
         <button 
           type="button" 
           onClick={() => setForm({...form, reminder: !form.reminder})} 
-          className={`w-12 h-7 rounded-full transition-colors ${form.reminder ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+          className={`w-12 h-7 rounded-full transition-all duration-300 ${form.reminder ? 'bg-gradient-to-r from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30' : 'bg-slate-300 dark:bg-slate-600'}`}
         >
-          <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
+          <div className={`w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${form.reminder ? 'translate-x-6' : 'translate-x-1'}`} />
         </button>
       </div>
       
       {form.reminder && (
         <div>
-          <label className="label">Reminder Time *</label>
+          <label className="label flex items-center gap-2">
+            <Clock className="w-5 h-5 text-emerald-500" />
+            Reminder Time *
+          </label>
           <input 
             type="time" 
             value={form.reminderTime} 
             onChange={(e) => setForm({...form, reminderTime: e.target.value})} 
-            className={`input ${errors.reminderTime ? 'border-red-500' : ''}`} 
+            className={`input ${errors.reminderTime ? 'border-red-500 ring-2 ring-red-500/20' : ''}`} 
           />
-          {errors.reminderTime && <p className="text-red-500 text-xs mt-1">{errors.reminderTime}</p>}
+          {errors.reminderTime && <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{errors.reminderTime}</p>}
         </div>
       )}
       
-      <div className="flex gap-3 pt-4">
-        <button type="button" onClick={onClose} className="btn btn-secondary flex-1" disabled={isSubmitting}>
+      <div className="flex gap-3 pt-2">
+        <button type="button" onClick={onClose} className="btn btn-secondary flex-1 py-3.5" disabled={isSubmitting}>
           Cancel
         </button>
-        <button type="submit" className="btn btn-primary flex-1" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : (habit ? 'Save Habit' : 'Create Habit')}
+        <button type="submit" className="btn btn-primary flex-1 py-3.5 shadow-lg shadow-emerald-500/25" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Saving...</span>
+          ) : (
+            <span className="flex items-center gap-2">{habit ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {habit ? 'Save Habit' : 'Create Habit'}</span>
+          )}
         </button>
       </div>
     </form>
