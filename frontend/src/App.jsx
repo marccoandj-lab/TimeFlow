@@ -331,7 +331,7 @@ function Modal({ isOpen, onClose, title, children, variant = 'default' }) {
   if (isMobile) {
     return (
       <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col animate-slide-up">
-        <div className={`flex items-center gap-3 p-4 ${config.headerBg} border-b border-slate-200/50 dark:border-slate-700/50 flex-shrink-0`}>
+        <div className={`flex items-center gap-3 p-4 ${config.headerBg} border-b border-slate-200/50 dark:border-slate-700/50 flex-shrink-0 safe-area-top`}>
           <div className={`w-10 h-10 rounded-2xl ${config.iconBg} flex items-center justify-center shadow-lg`}>
             <IconComponent className="w-5 h-5 text-white" />
           </div>
@@ -344,7 +344,7 @@ function Modal({ isOpen, onClose, title, children, variant = 'default' }) {
           </button>
         </div>
         <div 
-          className="flex-1 overflow-y-auto overflow-x-hidden p-4" 
+          className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24" 
           style={{ 
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain',
@@ -655,7 +655,7 @@ function Dashboard({ onNavigate }) {
   }
 
   return (
-    <div className="space-y-5 pb-20 md:pb-4">
+    <div className="space-y-5 pb-24 md:pb-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Welcome back!</h1>
@@ -880,14 +880,14 @@ function TasksView() {
     }
   }
 
-  return (
-    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
-      <div className="flex items-center justify-between">
+return (
+    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4 overflow-y-auto">
+      <div className="flex items-center justify-between sticky top-0 bg-slate-50 dark:bg-slate-950 z-10 py-2 -mt-2 -mx-1 px-1">
         <div>
           <h1 className="text-xl font-bold">Tasks</h1>
           <p className="text-xs text-gray-500">{filteredTasks.filter(t => t.status !== 'completed').length} pending</p>
         </div>
-        <button onClick={() => { setEditingTask(null); setShowModal(true) }} className="btn btn-primary flex items-center gap-2 text-sm">
+        <button onClick={() => { setEditingTask(null); setShowModal(true) }} className="btn btn-primary flex items-center gap-2 text-sm shadow-lg shadow-violet-500/25">
           <Plus className="w-4 h-4" /> Add
         </button>
       </div>
@@ -1285,7 +1285,7 @@ function CalendarView() {
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
   return (
-    <div className="space-y-4 pb-20 md:pb-4">
+    <div className="space-y-4 pb-24 md:pb-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Calendar</h1>
@@ -1565,7 +1565,7 @@ function OverdueView({ onNavigate }) {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
+    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-rose-600 dark:text-rose-400">Overdue Tasks</h1>
@@ -1918,7 +1918,7 @@ function PomodoroTimer() {
   const currentPreset = presets.find(p => p.label.toLowerCase() === mode)
 
   return (
-    <div className="space-y-5 pb-20 md:pb-4">
+    <div className="space-y-5 pb-24 md:pb-4">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Focus Timer</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Stay productive with timed sessions</p>
@@ -2141,14 +2141,14 @@ function HabitsView() {
     }
   }
 
-  return (
-    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
-      <div className="flex items-center justify-between">
+return (
+    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4 overflow-y-auto">
+      <div className="flex items-center justify-between sticky top-0 bg-slate-50 dark:bg-slate-950 z-10 py-2 -mt-2 -mx-1 px-1">
         <div>
           <h1 className="text-xl font-bold">Habits</h1>
           <p className="text-xs text-gray-500">Build consistent daily routines</p>
         </div>
-        <button onClick={() => { setEditingHabit(null); setShowModal(true) }} className="btn btn-primary flex items-center gap-2 text-sm"><Plus className="w-4 h-4" /> Add</button>
+        <button onClick={() => { setEditingHabit(null); setShowModal(true) }} className="btn btn-primary flex items-center gap-2 text-sm shadow-lg shadow-violet-500/25"><Plus className="w-4 h-4" /> Add</button>
       </div>
 
       {habits.length === 0 ? (
@@ -2511,7 +2511,7 @@ function NotesView() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 pb-20 md:pb-4">
+    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Notes</h1>
