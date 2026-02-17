@@ -10,7 +10,8 @@
   }
   html, body, #root {
     height: 100%;
-    overflow: hidden;
+    margin: 0;
+    padding: 0;
   }
   body {
     @apply bg-slate-50 text-gray-900 dark:bg-slate-950 dark:text-gray-100 overscroll-none antialiased;
@@ -187,15 +188,12 @@
 }
 
 .page-container {
-  will-change: transform;
   -webkit-overflow-scrolling: touch;
 }
 
 .page-transition-wrapper {
-  will-change: transform, opacity;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  transform: translateZ(0);
 }
 
 .animate-page-in {

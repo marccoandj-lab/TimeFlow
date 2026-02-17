@@ -123,8 +123,8 @@ function PageTransition({ children, viewKey, direction }) {
     }
   }, [viewKey])
 
-  return (
-    <div className={`w-full h-full ${showAnimation ? 'animate-page-in' : ''}`}>
+return (
+    <div className={`w-full ${showAnimation ? 'animate-page-in' : ''}`}>
       {children}
     </div>
   )
@@ -654,8 +654,8 @@ function Dashboard({ onNavigate }) {
     }
   }
 
-  return (
-    <div className="space-y-5 pb-24 md:pb-4">
+return (
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Welcome back!</h1>
@@ -684,7 +684,7 @@ function Dashboard({ onNavigate }) {
             </h2>
             <span className="text-xs font-medium text-slate-500">{todayHabits.length} remaining</span>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+<div className="flex gap-3 flex-wrap">
             {todayHabits.slice(0, 4).map(habit => (
               <button
                 key={habit.id}
@@ -881,7 +881,7 @@ function TasksView() {
   }
 
 return (
-    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between sticky top-0 bg-slate-50 dark:bg-slate-950 z-10 py-2 -mt-2 -mx-1 px-1">
         <div>
           <h1 className="text-xl font-bold">Tasks</h1>
@@ -1284,7 +1284,7 @@ function CalendarView() {
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
   return (
-    <div className="space-y-4 pb-24 md:pb-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Calendar</h1>
@@ -1564,7 +1564,7 @@ function OverdueView({ onNavigate }) {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-rose-600 dark:text-rose-400">Overdue Tasks</h1>
@@ -2141,7 +2141,7 @@ function HabitsView() {
   }
 
 return (
-    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between sticky top-0 bg-slate-50 dark:bg-slate-950 z-10 py-2 -mt-2 -mx-1 px-1">
         <div>
           <h1 className="text-xl font-bold">Habits</h1>
@@ -2510,7 +2510,7 @@ function NotesView() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Notes</h1>
@@ -2733,18 +2733,18 @@ return (
     <UserApiContext.Provider value={userApi}>
       <PWAContext.Provider value={{ deferredPrompt, showInstallPrompt }}>
       <ThemeContext.Provider value={{ dark, setDark }}>
-        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
+        <div className="h-screen flex bg-slate-50 dark:bg-slate-950">
           {!isMobile && (
             <Sidebar activeView={activeView} setActiveView={setActiveView} collapsed={sidebarCollapsed} />
           )}
           <main 
-            className="flex-1 flex flex-col overflow-hidden"
+            className="flex-1 flex flex-col h-full overflow-hidden"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
             {isMobile && (
-              <div className="flex items-center justify-between mb-4 px-4 pt-4 flex-shrink-0">
+              <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
                     <Sparkles className="w-5 h-5 text-white" />
@@ -2764,10 +2764,12 @@ return (
                 </div>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 pb-4">
-              <PageTransition viewKey={activeView} direction={getDirection()}>
-                <View onNavigate={setActiveView} />
-              </PageTransition>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6">
+              <div className="py-4 pb-20">
+                <PageTransition viewKey={activeView} direction={getDirection()}>
+                  <View onNavigate={setActiveView} />
+                </PageTransition>
+              </div>
             </div>
           </main>
           {isMobile && <MobileNav activeView={activeView} setActiveView={setActiveView} />}
