@@ -451,16 +451,6 @@ app.get('/api/notifications/list/:userId', async (req, res) => {
   }
 });
 
-setInterval(async () => {
-  const serverUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
-  try {
-    const response = await fetch(`${serverUrl}/api/health`);
-    console.log(`[${new Date().toISOString()}] Keep-alive ping: ${response.status}`);
-  } catch (error) {
-    console.log(`[${new Date().toISOString()}] Keep-alive ping failed: ${error.message}`);
-  }
-}, 4 * 60 * 1000);
-
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
