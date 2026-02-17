@@ -11,6 +11,7 @@ import { NotificationProvider, useNotifications } from './contexts/NotificationC
 import { useAuth } from './contexts/AuthContext'
 import AuthPage from './components/AuthPage'
 import SettingsPage, { getTimerSettings } from './components/SettingsPage'
+import { createUserApi } from './firebaseApi'
 
 const API_BASE = '/api'
 const ThemeContext = createContext()
