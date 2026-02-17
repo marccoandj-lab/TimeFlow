@@ -7,8 +7,7 @@ import {
   updateProfile,
   sendPasswordResetEmail,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult
+  signInWithPopup
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -86,10 +85,33 @@ export function AuthProvider({ children }) {
     return signInWithEmailAndPassword(auth, email, password)
   }
 
-  function loginWithGoogle() {
+  async function loginWithGoogle() {
     if (!auth) throw new Error('Firebase not initialized')
     const provider = new GoogleAuthProvider()
-    return signInWithRedirect(auth, provider)
+    const result = await signInWithPopup(auth, provider)
+    
+    if (result.user && db) {
+      const userRef = doc(db, 'users', result.user.uid)
+      const userSnap = await getDoc(userRef)
+      if (!userSnap.exists()) {
+        await setDoc(userRef, {
+          uid: result.user.uid,
+          email: result.user.email,
+          displayName: result.user.displayName,
+          photoURL: result.user.photoURL,
+          createdAt: serverTimestamp(),
+          settings: {
+            darkMode: false,
+            notifications: true,
+            pomodoroDuration: 25,
+            shortBreakDuration: 5,
+            longBreakDuration: 15
+          }
+        })
+      }
+    }
+    
+    return result
   }
 
   function logout() {
@@ -150,33 +172,6 @@ export function AuthProvider({ children }) {
       setError('Firebase not configured. Please add environment variables.')
       return
     }
-
-    getRedirectResult(auth).then(async (result) => {
-      if (result?.user) {
-        console.log('🔐 Google redirect success:', result.user.uid)
-        const userRef = doc(db, 'users', result.user.uid)
-        const userSnap = await getDoc(userRef)
-        if (!userSnap.exists()) {
-          console.log('📝 Creating new user document for Google login')
-          await setDoc(userRef, {
-            uid: result.user.uid,
-            email: result.user.email,
-            displayName: result.user.displayName,
-            photoURL: result.user.photoURL,
-            createdAt: serverTimestamp(),
-            settings: {
-              darkMode: false,
-              notifications: true,
-              pomodoroDuration: 25,
-              shortBreakDuration: 5,
-              longBreakDuration: 15
-            }
-          })
-        }
-      }
-    }).catch((err) => {
-      console.error('Google redirect error:', err)
-    })
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!isMountedRef.current) return
