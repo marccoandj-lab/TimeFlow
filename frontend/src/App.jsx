@@ -880,27 +880,116 @@ function TasksView() {
       {filteredTasks.length === 0 ? (
         <EmptyState icon={CheckSquare} title="No tasks found" description="Create a task to get started" action={<button onClick={() => setShowModal(true)} className="btn btn-primary text-sm">Create Task</button>} />
       ) : (
-        <div className="space-y-2">
-          {filteredTasks.map(task => (
-            <div key={task.id} onClick={() => { setEditingTask(task); setShowModal(true) }} className={`card p-3 flex items-center gap-3 group active:bg-gray-50 dark:active:bg-gray-700/50 transition-all cursor-pointer ${task.status === 'completed' ? 'opacity-50' : ''}`}>
-              <button onClick={(e) => { e.stopPropagation(); handleToggle(task) }} className="touch-target flex items-center justify-center flex-shrink-0">
-                {task.status === 'completed' ? <CheckCircle2 className="w-6 h-6 text-emerald-500" /> : <Circle className={`w-6 h-6 ${task.priority === 'high' ? 'text-red-500' : task.priority === 'medium' ? 'text-amber-500' : 'text-slate-400'}`} />}
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className={`font-medium text-sm ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>{task.title}</p>
-                <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                  {task.dueDate && (
-                    <span className={isPast(parseISO(task.dueDate)) && task.status !== 'completed' ? 'text-red-500' : ''}>
-                      {isToday(parseISO(task.dueDate)) ? 'Today' : isTomorrow(parseISO(task.dueDate)) ? 'Tomorrow' : format(parseISO(task.dueDate), 'MMM d')}
-                    </span>
-                  )}
-                  {task.estimatedMinutes && <span>• {task.estimatedMinutes}m</span>}
+        <div className="space-y-3">
+          {filteredTasks.map(task => {
+            const isOverdue = isTaskOverdue(task)
+            const priorityConfig = {
+              high: { 
+                gradient: 'from-rose-500 via-red-500 to-pink-500', 
+                bg: 'bg-rose-50 dark:bg-rose-950/20',
+                border: 'border-l-rose-500',
+                glow: 'shadow-rose-500/20',
+                icon: '🔥',
+                pulse: true
+              },
+              medium: { 
+                gradient: 'from-amber-400 via-orange-500 to-yellow-500', 
+                bg: 'bg-amber-50 dark:bg-amber-950/20',
+                border: 'border-l-amber-500',
+                glow: 'shadow-amber-500/20',
+                icon: '⚡',
+                pulse: false
+              },
+              low: { 
+                gradient: 'from-slate-400 via-slate-500 to-slate-600', 
+                bg: 'bg-slate-50 dark:bg-slate-800/30',
+                border: 'border-l-slate-400',
+                glow: 'shadow-slate-500/20',
+                icon: '💤',
+                pulse: false
+              }
+            }
+            const config = priorityConfig[task.priority] || priorityConfig.medium
+            
+            return (
+              <div 
+                key={task.id} 
+                onClick={() => { setEditingTask(task); setShowModal(true) }} 
+                className={`relative card overflow-hidden border-l-4 ${config.border} ${task.status === 'completed' ? 'opacity-60' : ''} group hover:shadow-lg ${config.glow} transition-all duration-300 cursor-pointer`}
+              >
+                {isOverdue && task.status !== 'completed' && (
+                  <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
+                    <div className="absolute top-2 -right-6 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[10px] font-bold px-6 py-0.5 rotate-45 shadow-lg">
+                      OVERDUE
+                    </div>
+                  </div>
+                )}
+                
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleToggle(task) }} 
+                      className={`relative flex-shrink-0 w-7 h-7 rounded-full border-2 transition-all duration-300 flex items-center justify-center ${
+                        task.status === 'completed' 
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 border-transparent scale-110' 
+                          : `border-2 hover:scale-110 ${task.priority === 'high' ? 'border-rose-400 hover:bg-rose-100' : task.priority === 'medium' ? 'border-amber-400 hover:bg-amber-100' : 'border-slate-300 hover:bg-slate-100'}`
+                      }`}
+                    >
+                      {task.status === 'completed' && (
+                        <CheckCircle2 className="w-4 h-4 text-white animate-scale-in" />
+                      )}
+                    </button>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className={`font-medium text-sm ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                          {task.title}
+                        </p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full bg-gradient-to-r ${config.gradient} text-white font-medium ${config.pulse ? 'animate-pulse-subtle' : ''}`}>
+                          {config.icon} {task.priority}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 mt-2 text-xs">
+                        {task.dueDate && (
+                          <span className={`flex items-center gap-1 ${isOverdue && task.status !== 'completed' ? 'text-rose-500 font-semibold' : 'text-slate-500'}`}>
+                            <Calendar className="w-3 h-3" />
+                            {isToday(parseISO(task.dueDate)) ? 'Today' : isTomorrow(parseISO(task.dueDate)) ? 'Tomorrow' : format(parseISO(task.dueDate), 'MMM d')}
+                            {task.dueTime && <span className="font-medium">at {task.dueTime}</span>}
+                          </span>
+                        )}
+                        
+                        {task.estimatedMinutes && (
+                          <span className="flex items-center gap-1 text-slate-400">
+                            <Clock className="w-3 h-3" />
+                            {task.estimatedMinutes}m
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <span 
+                        className="text-xs px-2.5 py-1 rounded-lg font-medium shadow-sm" 
+                        style={{ 
+                          color: categoryColors[task.category] || categoryColors.general, 
+                          backgroundColor: `${categoryColors[task.category] || categoryColors.general}20` 
+                        }}
+                      >
+                        {task.category}
+                      </span>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(task) }} 
+                        className="p-2 opacity-0 group-hover:opacity-100 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-rose-500 rounded-lg transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <span className="hidden sm:block text-xs px-2 py-1 rounded-lg flex-shrink-0" style={{ color: categoryColors[task.category] || categoryColors.general, backgroundColor: `${categoryColors[task.category] || categoryColors.general}15` }}>{task.category}</span>
-              <button onClick={(e) => { e.stopPropagation(); handleDelete(task) }} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded-lg touch-target"><Trash2 className="w-4 h-4" /></button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -909,9 +998,9 @@ function TasksView() {
       </Modal>
       
       {successMessage && (
-        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl shadow-lg z-50 animate-fade-in">
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-3 rounded-2xl shadow-xl z-50 animate-slide-up">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
+            <CheckCircle2 className="w-5 h-5" />
             <span className="text-sm font-medium">{successMessage}</span>
           </div>
         </div>
@@ -1979,25 +2068,125 @@ function HabitsView() {
       {habits.length === 0 ? (
         <EmptyState icon={Target} title="No habits yet" description="Start building better habits" action={<button onClick={() => setShowModal(true)} className="btn btn-primary text-sm">Create Habit</button>} />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-          {habits.map(h => (
-            <div key={h.id} onClick={() => { setEditingHabit(h); setShowModal(true) }} className="card p-3 group active:bg-gray-50 dark:active:bg-gray-700/50 transition-colors cursor-pointer">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: h.color }} />
-                  <span className="font-medium text-sm truncate">{h.name}</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {habits.map(h => {
+            const today = new Date().toISOString().split('T')[0]
+            const isCompletedToday = h.lastCompleted?.startsWith(today)
+            const streakLevel = h.streak >= 30 ? 'master' : h.streak >= 14 ? 'pro' : h.streak >= 7 ? 'consistent' : h.streak >= 3 ? 'starter' : 'beginner'
+            const streakConfig = {
+              master: { emoji: '👑', label: 'Master', bg: 'from-amber-400 via-yellow-500 to-orange-500', ring: '#f59e0b' },
+              pro: { emoji: '🔥', label: 'Pro', bg: 'from-rose-400 via-red-500 to-pink-500', ring: '#ef4444' },
+              consistent: { emoji: '⚡', label: 'Consistent', bg: 'from-violet-400 via-purple-500 to-indigo-500', ring: '#8b5cf6' },
+              starter: { emoji: '🌱', label: 'Starter', bg: 'from-emerald-400 via-green-500 to-teal-500', ring: '#10b981' },
+              beginner: { emoji: '⭐', label: 'Beginner', bg: 'from-slate-400 via-slate-500 to-slate-600', ring: '#64748b' }
+            }
+            const config = streakConfig[streakLevel]
+            const progress = Math.min((h.streak / 30) * 100, 100)
+            
+            return (
+              <div 
+                key={h.id} 
+                onClick={() => { setEditingHabit(h); setShowModal(true) }} 
+                className={`relative card overflow-hidden group hover:shadow-xl transition-all duration-300 cursor-pointer ${isCompletedToday ? 'ring-2 ring-emerald-400 ring-offset-2 dark:ring-offset-slate-900' : ''}`}
+              >
+                <div 
+                  className="absolute inset-0 opacity-5"
+                  style={{ background: `linear-gradient(135deg, ${h.color}33 0%, transparent 50%)` }}
+                />
+                
+                <div className="relative p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
+                        style={{ backgroundColor: h.color || '#6366f1' }}
+                      >
+                        {(h.name?.[0] || 'H').toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-sm block truncate max-w-[120px]">{h.name}</span>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gradient-to-r ${config.bg} text-white`}>
+                          {config.emoji} {config.label}
+                        </span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDelete(h) }} 
+                      className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-rose-100 dark:hover:bg-rose-900/30 rounded-lg text-rose-500 transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-16 h-16">
+                        <svg className="w-full h-full progress-ring" viewBox="0 0 36 36">
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="16"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            className="text-slate-200 dark:text-slate-700"
+                          />
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="16"
+                            fill="none"
+                            stroke={config.ring}
+                            strokeWidth="3"
+                            strokeDasharray={`${progress} 100`}
+                            strokeLinecap="round"
+                            className="transition-all duration-500"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold" style={{ color: h.color }}>{h.streak}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">day streak</p>
+                        <p className="text-[10px] text-gray-400">Best: {h.bestStreak || h.streak}</p>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation()
+                        if (!isCompletedToday) handleComplete(h.id)
+                      }} 
+                      className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 touch-target ${
+                        isCompletedToday 
+                          ? 'bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg shadow-emerald-500/30' 
+                          : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 hover:scale-105'
+                      }`}
+                      disabled={isCompletedToday}
+                    >
+                      {isCompletedToday ? (
+                        <CheckCircle2 className="w-7 h-7 text-white animate-scale-in" />
+                      ) : (
+                        <div className="text-slate-400 dark:text-slate-300">
+                          <Target className="w-6 h-6" />
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                  
+                  {isCompletedToday && (
+                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Completed today!
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(h) }} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-500 touch-target"><Trash2 className="w-4 h-4" /></button>
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold" style={{ color: h.color }}>{h.streak}</p>
-                  <p className="text-xs text-gray-400">day streak</p>
-                </div>
-                <button onClick={(e) => { e.stopPropagation(); handleComplete(h.id) }} className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 flex items-center justify-center transition-colors touch-target"><CheckCircle2 className="w-6 h-6 text-emerald-600" /></button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -2006,9 +2195,9 @@ function HabitsView() {
       </Modal>
       
       {successMessage && (
-        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-4 py-2 rounded-xl shadow-lg z-50 animate-fade-in">
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-3 rounded-2xl shadow-xl z-50 animate-slide-up">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
+            <CheckCircle2 className="w-5 h-5" />
             <span className="text-sm font-medium">{successMessage}</span>
           </div>
         </div>
