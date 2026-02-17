@@ -881,7 +881,7 @@ function TasksView() {
   }
 
 return (
-    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4 overflow-y-auto">
+    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4">
       <div className="flex items-center justify-between sticky top-0 bg-slate-50 dark:bg-slate-950 z-10 py-2 -mt-2 -mx-1 px-1">
         <div>
           <h1 className="text-xl font-bold">Tasks</h1>
@@ -899,7 +899,7 @@ return (
         </div>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+<div className="flex gap-1 flex-wrap pb-1">
         {['all', 'today', 'pending', 'completed'].map(f => (
           <button key={f} onClick={() => setFilter(f)} className={`px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors touch-target ${filter === f ? 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400' : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
             {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -972,11 +972,11 @@ return (
                     
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className={`font-medium text-sm truncate ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                        <p className={`font-medium text-sm truncate max-w-[140px] sm:max-w-none ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
                           {task.title}
                         </p>
                         <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-gradient-to-r ${config.gradient} text-white font-medium flex-shrink-0 ${config.pulse ? 'animate-pulse-subtle' : ''}`}>
-                          {config.icon} {task.priority}
+                          {config.icon}
                         </span>
                       </div>
                       
@@ -2141,7 +2141,7 @@ function HabitsView() {
   }
 
 return (
-    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4 overflow-y-auto">
+    <div className="space-y-3 sm:space-y-4 pb-24 md:pb-4">
       <div className="flex items-center justify-between sticky top-0 bg-slate-50 dark:bg-slate-950 z-10 py-2 -mt-2 -mx-1 px-1">
         <div>
           <h1 className="text-xl font-bold">Habits</h1>
@@ -2153,7 +2153,7 @@ return (
       {habits.length === 0 ? (
         <EmptyState icon={Target} title="No habits yet" description="Start building better habits" action={<button onClick={() => setShowModal(true)} className="btn btn-primary text-sm">Create Habit</button>} />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4">
           {habits.map(h => {
             const today = new Date().toISOString().split('T')[0]
             const isCompletedToday = h.lastCompleted?.startsWith(today)
@@ -2729,22 +2729,22 @@ function AppContent() {
     return <AuthPage />
   }
 
-  return (
+return (
     <UserApiContext.Provider value={userApi}>
       <PWAContext.Provider value={{ deferredPrompt, showInstallPrompt }}>
       <ThemeContext.Provider value={{ dark, setDark }}>
-        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
+        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
           {!isMobile && (
             <Sidebar activeView={activeView} setActiveView={setActiveView} collapsed={sidebarCollapsed} />
           )}
           <main 
-            className="flex-1 p-4 md:p-6 overflow-hidden"
+            className="flex-1 flex flex-col overflow-hidden"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
             {isMobile && (
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 px-4 pt-4 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
                     <Sparkles className="w-5 h-5 text-white" />
@@ -2764,7 +2764,7 @@ function AppContent() {
                 </div>
               </div>
             )}
-            <div className="h-full overflow-auto page-container">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 pb-4">
               <PageTransition viewKey={activeView} direction={getDirection()}>
                 <View onNavigate={setActiveView} />
               </PageTransition>

@@ -8,11 +8,12 @@
     -webkit-tap-highlight-color: transparent;
     box-sizing: border-box;
   }
-  html {
-    overflow-x: hidden;
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
   }
   body {
-    @apply bg-slate-50 text-gray-900 dark:bg-slate-950 dark:text-gray-100 overscroll-none antialiased overflow-x-hidden;
+    @apply bg-slate-50 text-gray-900 dark:bg-slate-950 dark:text-gray-100 overscroll-none antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 }
