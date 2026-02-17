@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useUserApi } from '../App'
 
 const storage = {
   get: (key, def = null) => {
@@ -42,6 +43,7 @@ export const getTimerSettings = () => {
 export default function SettingsPage({ onNavigate }) {
   const { requestPermission, permission, scheduleDailyReminder, cancelDailyReminder } = useNotifications()
   const { currentUser, userData, logout } = useAuth()
+  const userApi = useUserApi()
   const [settings, setSettings] = useState(() => {
     const saved = storage.get('appSettings')
     return saved || {
@@ -149,6 +151,14 @@ export default function SettingsPage({ onNavigate }) {
   async function clearAllData() {
     if (confirm('Are you sure you want to clear all your data? This cannot be undone.')) {
       storage.clear()
+      if (userApi && currentUser) {
+        try {
+          const result = await userApi.clearAll()
+          console.log('Deleted from Firestore:', result)
+        } catch (err) {
+          console.error('Error clearing Firestore data:', err)
+        }
+      }
       window.location.reload()
     }
   }

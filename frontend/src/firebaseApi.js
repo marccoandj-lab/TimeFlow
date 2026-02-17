@@ -1,8 +1,21 @@
 import { 
   collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, 
-  query, where, orderBy, serverTimestamp, onSnapshot 
+  query, where, orderBy, serverTimestamp, onSnapshot, writeBatch 
 } from 'firebase/firestore'
 import { db } from './firebase'
+
+const deleteCollection = async (userRef, collectionName) => {
+  const colRef = collection(userRef, collectionName)
+  const snapshot = await getDocs(colRef)
+  const batch = writeBatch(db)
+  snapshot.docs.forEach((docSnapshot) => {
+    batch.delete(docSnapshot.ref)
+  })
+  if (snapshot.docs.length > 0) {
+    await batch.commit()
+  }
+  return snapshot.docs.length
+}
 
 const createUserApi = (userId) => {
   if (!userId || !db) return null
@@ -189,6 +202,24 @@ const createUserApi = (userId) => {
         overdueTasks,
         completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
         habitsCompletedToday: habits.filter(h => h.lastCompleted?.startsWith(today)).length
+      }
+    },
+    
+    clearAll: async () => {
+      const counts = await Promise.all([
+        deleteCollection(userRef, 'tasks'),
+        deleteCollection(userRef, 'habits'),
+        deleteCollection(userRef, 'notes'),
+        deleteCollection(userRef, 'categories'),
+        deleteCollection(userRef, 'timeSessions')
+      ])
+      return { 
+        deleted: counts.reduce((a, b) => a + b, 0),
+        tasks: counts[0],
+        habits: counts[1],
+        notes: counts[2],
+        categories: counts[3],
+        timeSessions: counts[4]
       }
     }
   }
