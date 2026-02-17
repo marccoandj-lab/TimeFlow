@@ -167,10 +167,16 @@ const createUserApi = (userId) => {
     },
     
     stats: async () => {
-      const [tasks, habits] = await Promise.all([
-        this.tasks.list(),
-        this.habits.list()
+      const tasksRef = collection(userRef, 'tasks')
+      const habitsRef = collection(userRef, 'habits')
+      
+      const [tasksSnap, habitsSnap] = await Promise.all([
+        getDocs(tasksRef),
+        getDocs(habitsRef)
       ])
+      
+      const tasks = tasksSnap.docs.map(d => d.data())
+      const habits = habitsSnap.docs.map(d => d.data())
       
       const today = new Date().toISOString().split('T')[0]
       const totalTasks = tasks.length
